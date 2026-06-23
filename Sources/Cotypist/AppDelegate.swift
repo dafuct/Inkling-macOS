@@ -16,9 +16,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         eventTap.onKeyDown = { [weak self] in self?.refreshSuggestion() }
         eventTap.onAccept = { [weak self] in
-            NSLog("Cotypist: ACCEPTED suggestion")
-            self?.overlay.hide()
-            self?.eventTap.suggestionVisible = false
+            // The tap currently fires on the main run loop (start() is called from
+            // the main thread), so this is already main-safe. Phase 1 will likely
+            // move the tap to a dedicated thread for lower keystroke latency — hop
+            // to main explicitly now so AppKit (overlay.hide) stays correct then.
+            DispatchQueue.main.async {
+                NSLog("Cotypist: ACCEPTED suggestion")
+                self?.overlay.hide()
+                self?.eventTap.suggestionVisible = false
+            }
         }
 
         if !eventTap.start() {
