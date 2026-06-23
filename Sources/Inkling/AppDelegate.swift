@@ -9,12 +9,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
 
-        guard PermissionsManager.isAccessibilityTrusted(prompt: true) else {
-            NSLog("Inkling: grant Accessibility permission in System Settings, then relaunch.")
+        let trusted = PermissionsManager.isAccessibilityTrusted(prompt: true)
+        NSLog("Inkling: launched. accessibilityTrusted=\(trusted)")
+        guard trusted else {
+            NSLog("Inkling: NOT trusted — grant Accessibility, then relaunch.")
             return
         }
 
-        eventTap.onKeyDown = { [weak self] in self?.refreshSuggestion() }
+        eventTap.onKeyDown = { [weak self] in
+            NSLog("Inkling: keyDown received")
+            self?.refreshSuggestion()
+        }
         eventTap.onAccept = { [weak self] in
             // The tap currently fires on the main run loop (start() is called from
             // the main thread), so this is already main-safe. Phase 1 will likely
@@ -27,8 +32,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        if !eventTap.start() {
-            NSLog("Inkling: failed to create event tap — check Accessibility/Input Monitoring.")
+        if eventTap.start() {
+            NSLog("Inkling: event tap started.")
+        } else {
+            NSLog("Inkling: FAILED to create event tap — check Accessibility/Input Monitoring.")
         }
     }
 
@@ -48,14 +55,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func refreshSuggestion() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             guard let self else { return }
-            guard let readout = FocusContextProvider.currentReadout(),
-                  let bounds = readout.caretBounds else {
+            guard let readout = FocusContextProvider.currentReadout() else {
+                NSLog("Inkling: AX readout = nil (no focused text element, or not AX-readable)")
+                self.overlay.hide()
+                self.eventTap.suggestionVisible = false
+                return
+            }
+            guard let bounds = readout.caretBounds else {
+                NSLog("Inkling: AX ok (caret=\(readout.caretIndex)) but caretBounds = nil")
                 self.overlay.hide()
                 self.eventTap.suggestionVisible = false
                 return
             }
             let context = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
-            NSLog("Inkling: prefix=\"\(context.prefix.suffix(20))\" caret=\(readout.caretIndex)")
+            NSLog("Inkling: showing \"hello\" — prefix=\"\(context.prefix.suffix(20))\" caret=\(readout.caretIndex) bounds=\(bounds)")
 
             let suggestion = " hello" // dummy engine — proves the pipeline
             self.overlay.show(text: suggestion, caretBounds: bounds)
