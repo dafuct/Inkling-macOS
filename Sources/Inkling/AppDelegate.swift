@@ -78,7 +78,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("Inkling: showing \"\(suggestion)\" caret=\(readout.caretIndex)")
     }
 
-    /// Tab accepts only the next word; the remainder stays as ghost text.
+    /// Tab inserts the next word of the suggestion. With the Phase 1 dummy engine
+    /// the suggestion is a single word, so `remainder` is always empty; the
+    /// inserted keystrokes re-enter the tap and trigger a fresh debounced query.
+    /// PHASE 2 PRE-WORK: once the real engine emits multi-word suggestions,
+    /// re-show `split.remainder` as ghost text here instead of dropping it.
     private func acceptNextWord() {
         let split = SuggestionSplitter.nextChunk(of: currentSuggestion)
         guard !split.chunk.isEmpty else { dismiss(); return }
@@ -86,8 +90,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         eventTap.suggestionVisible = false
         TextInserter.insert(split.chunk)
         NSLog("Inkling: accepted \"\(split.chunk)\", remainder=\"\(split.remainder)\"")
-        // Inserting synthesizes keystrokes that re-enter the tap and trigger a
-        // fresh debounced suggestion, so we simply clear our state here.
         currentSuggestion = ""
     }
 }
