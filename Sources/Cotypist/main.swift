@@ -1,0 +1,1 @@
+print("Cotypist scaffold OK")

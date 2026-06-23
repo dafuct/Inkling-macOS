@@ -4,3 +4,6 @@ wiki/
 raw/
 .claude/
 CLAUDE.md
+.build/
+.swiftpm/
+*.app
