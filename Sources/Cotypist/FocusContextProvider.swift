@@ -53,22 +53,27 @@ enum FocusContextProvider {
         }
 
         // Caret pixel bounds via the parameterized bounds-for-range attribute.
-        var caretBounds: CGRect?
-        var oneCharRange = CFRange(location: caretIndex, length: 1)
-        if let rangeValue = AXValueCreate(.cfRange, &oneCharRange) {
+        // Asking for the char AT the caret fails when the caret is at end-of-text
+        // (the common case while typing), so fall back to the preceding char and
+        // use its trailing edge — which is exactly where the caret sits. Bounds
+        // come back in global display coords with a top-left origin.
+        func bounds(forLocation loc: Int) -> CGRect? {
+            guard loc >= 0 else { return nil }
+            var range = CFRange(location: loc, length: 1)
+            guard let rangeValue = AXValueCreate(.cfRange, &range) else { return nil }
             var boundsRef: CFTypeRef?
-            if AXUIElementCopyParameterizedAttributeValue(
+            guard AXUIElementCopyParameterizedAttributeValue(
                 element,
                 kAXBoundsForRangeParameterizedAttribute as CFString,
                 rangeValue,
                 &boundsRef
-            ) == .success, let boundsRef {
-                var rect = CGRect.zero
-                if AXValueGetValue(boundsRef as! AXValue, .cgRect, &rect) {
-                    caretBounds = rect
-                }
-            }
+            ) == .success, let boundsRef else { return nil }
+            var rect = CGRect.zero
+            guard AXValueGetValue(boundsRef as! AXValue, .cgRect, &rect) else { return nil }
+            return rect
         }
+
+        let caretBounds = bounds(forLocation: caretIndex) ?? bounds(forLocation: caretIndex - 1)
 
         return CaretReadout(text: text, caretIndex: caretIndex, caretBounds: caretBounds)
     }
