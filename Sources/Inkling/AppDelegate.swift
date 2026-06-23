@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTap = EventTapController()
     private let overlay = OverlayWindow()
     private var statusItem: NSStatusItem?
+    private var currentSuggestion = ""
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -21,14 +22,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.refreshSuggestion()
         }
         eventTap.onAccept = { [weak self] in
-            // The tap currently fires on the main run loop (start() is called from
-            // the main thread), so this is already main-safe. Phase 1 will likely
-            // move the tap to a dedicated thread for lower keystroke latency — hop
-            // to main explicitly now so AppKit (overlay.hide) stays correct then.
+            // The tap fires on the main run loop today; hop to main explicitly so
+            // AppKit calls stay correct if Phase 1 moves the tap off-main.
             DispatchQueue.main.async {
-                NSLog("Inkling: ACCEPTED suggestion")
-                self?.overlay.hide()
-                self?.eventTap.suggestionVisible = false
+                guard let self else { return }
+                let toInsert = self.currentSuggestion
+                self.overlay.hide()
+                self.eventTap.suggestionVisible = false
+                self.currentSuggestion = ""
+                guard !toInsert.isEmpty else { return }
+                TextInserter.insert(toInsert)
+                NSLog("Inkling: inserted \"\(toInsert)\"")
             }
         }
 
@@ -71,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("Inkling: showing \"hello\" — prefix=\"\(context.prefix.suffix(20))\" caret=\(readout.caretIndex) bounds=\(bounds)")
 
             let suggestion = " hello" // dummy engine — proves the pipeline
+            self.currentSuggestion = suggestion
             self.overlay.show(text: suggestion, caretBounds: bounds)
             self.eventTap.suggestionVisible = true
         }
