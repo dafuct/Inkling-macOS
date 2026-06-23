@@ -1,5 +1,5 @@
 import XCTest
-@testable import CotypistCore
+@testable import InklingCore
 
 final class TextContextTests: XCTestCase {
     func test_prefix_returnsTextBeforeCaret() {

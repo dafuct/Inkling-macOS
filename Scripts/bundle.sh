@@ -3,10 +3,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 swift build -c release
-APP="CotypistDev.app"
+APP="Inkling.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp ".build/release/Cotypist" "$APP/Contents/MacOS/Cotypist"
+cp ".build/release/Inkling" "$APP/Contents/MacOS/Inkling"
 cp "Resources/Info.plist" "$APP/Contents/Info.plist"
 
 # Ad-hoc signature so TCC can pin permissions to a stable identity.

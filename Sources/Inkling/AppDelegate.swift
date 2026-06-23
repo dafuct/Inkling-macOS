@@ -1,5 +1,5 @@
 import AppKit
-import CotypistCore
+import InklingCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTap = EventTapController()
@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupMenuBar()
 
         guard PermissionsManager.isAccessibilityTrusted(prompt: true) else {
-            NSLog("CotypistDev: grant Accessibility permission in System Settings, then relaunch.")
+            NSLog("Inkling: grant Accessibility permission in System Settings, then relaunch.")
             return
         }
 
@@ -21,14 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // move the tap to a dedicated thread for lower keystroke latency — hop
             // to main explicitly now so AppKit (overlay.hide) stays correct then.
             DispatchQueue.main.async {
-                NSLog("CotypistDev: ACCEPTED suggestion")
+                NSLog("Inkling: ACCEPTED suggestion")
                 self?.overlay.hide()
                 self?.eventTap.suggestionVisible = false
             }
         }
 
         if !eventTap.start() {
-            NSLog("CotypistDev: failed to create event tap — check Accessibility/Input Monitoring.")
+            NSLog("Inkling: failed to create event tap — check Accessibility/Input Monitoring.")
         }
     }
 
@@ -36,8 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = "⌨︎"
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Quit Cotypist",
-                                action: #selector(NSApplication.terminate(_:)), // quit CotypistDev
+        menu.addItem(NSMenuItem(title: "Quit Inkling",
+                                action: #selector(NSApplication.terminate(_:)), // quit Inkling
                                 keyEquivalent: "q"))
         item.menu = menu
         statusItem = item
@@ -55,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             let context = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
-            NSLog("CotypistDev: prefix=\"\(context.prefix.suffix(20))\" caret=\(readout.caretIndex)")
+            NSLog("Inkling: prefix=\"\(context.prefix.suffix(20))\" caret=\(readout.caretIndex)")
 
             let suggestion = " hello" // dummy engine — proves the pipeline
             self.overlay.show(text: suggestion, caretBounds: bounds)

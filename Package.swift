@@ -2,13 +2,13 @@
 import PackageDescription
 
 let package = Package(
-    name: "Cotypist",
+    name: "Inkling",
     platforms: [.macOS(.v14)],
     targets: [
-        .target(name: "CotypistCore"),
+        .target(name: "InklingCore"),
         .executableTarget(
-            name: "Cotypist",
-            dependencies: ["CotypistCore"],
+            name: "Inkling",
+            dependencies: ["InklingCore"],
             swiftSettings: [
                 // The macOS C frameworks (ApplicationServices) and AppKit are not
                 // annotated for Swift 6 strict concurrency. This spike does all its
@@ -19,8 +19,8 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "CotypistCoreTests",
-            dependencies: ["CotypistCore"]
+            name: "InklingCoreTests",
+            dependencies: ["InklingCore"]
         ),
     ]
 )
