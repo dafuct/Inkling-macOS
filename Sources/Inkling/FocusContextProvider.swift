@@ -18,6 +18,7 @@ enum FocusContextProvider {
         guard AXUIElementCopyAttributeValue(
             system, kAXFocusedUIElementAttribute as CFString, &focusedRef
         ) == .success, let focusedRef else { return nil }
+        guard CFGetTypeID(focusedRef) == AXUIElementGetTypeID() else { return nil }
         let element = focusedRef as! AXUIElement
 
         // Never read password fields. A secure field reports "AXSecureTextField"
@@ -45,7 +46,7 @@ enum FocusContextProvider {
         var caretIndex = text.utf16.count
         var rangeRef: CFTypeRef?
         if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
-           let rangeRef {
+           let rangeRef, CFGetTypeID(rangeRef) == AXValueGetTypeID() {
             var cfRange = CFRange()
             if AXValueGetValue(rangeRef as! AXValue, .cfRange, &cfRange) {
                 caretIndex = cfRange.location
@@ -67,7 +68,8 @@ enum FocusContextProvider {
                 kAXBoundsForRangeParameterizedAttribute as CFString,
                 rangeValue,
                 &boundsRef
-            ) == .success, let boundsRef else { return nil }
+            ) == .success, let boundsRef,
+                  CFGetTypeID(boundsRef) == AXValueGetTypeID() else { return nil }
             var rect = CGRect.zero
             guard AXValueGetValue(boundsRef as! AXValue, .cgRect, &rect) else { return nil }
             return rect

@@ -1,27 +1,23 @@
 import CoreGraphics
 import Foundation
 
-/// Owns a CGEventTap. Swallows Tab when `suggestionVisible` is true; otherwise
-/// passes every keyDown through and reports it via `onKeyDown`.
+/// Owns a CGEventTap. When a suggestion is visible it swallows Tab (accept) and
+/// Esc (dismiss); otherwise it passes keys through and reports them.
 final class EventTapController {
-    /// Set true while a suggestion is on screen; gates Tab swallowing.
     var suggestionVisible = false
-    /// Fired for each keyDown that is NOT swallowed (used to refresh context).
     var onKeyDown: (() -> Void)?
-    /// Fired when Tab is swallowed (the accept gesture).
     var onAccept: (() -> Void)?
+    var onDismiss: (() -> Void)?
 
     private var eventTap: CFMachPort?
-    private let tabKeyCode: Int64 = 0x30 // kVK_Tab
+    private var runLoopSource: CFRunLoopSource?
+    private let tabKeyCode: Int64 = 0x30  // kVK_Tab
+    private let escKeyCode: Int64 = 0x35  // kVK_Escape
 
-    /// Creates and enables the tap on the current run loop. Returns false if the
-    /// OS refused (usually means Accessibility/Input Monitoring is not granted).
     func start() -> Bool {
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
         let callback: CGEventTapCallBack = { _, type, event, refcon in
-            let controller = Unmanaged<EventTapController>
-                .fromOpaque(refcon!)
-                .takeUnretainedValue()
+            let controller = Unmanaged<EventTapController>.fromOpaque(refcon!).takeUnretainedValue()
             return controller.handle(type: type, event: event)
         }
         guard let tap = CGEvent.tapCreate(
@@ -36,9 +32,20 @@ final class EventTapController {
         }
         eventTap = tap
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         return true
+    }
+
+    /// Disables the tap and tears down its run-loop source. Safe to call once.
+    func stop() {
+        if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: false) }
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
+        }
+        runLoopSource = nil
+        eventTap = nil
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -48,9 +55,9 @@ final class EventTapController {
         }
         if type == .keyDown {
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-            if keyCode == tabKeyCode && suggestionVisible {
-                onAccept?()
-                return nil // swallow Tab
+            if suggestionVisible {
+                if keyCode == tabKeyCode { onAccept?(); return nil }   // swallow Tab
+                if keyCode == escKeyCode { onDismiss?(); return nil }  // swallow Esc
             }
             onKeyDown?()
         }
