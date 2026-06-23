@@ -35,9 +35,11 @@ final class OverlayWindow {
         label.sizeToFit()
         let size = label.frame.size
 
-        // Convert top-left origin to AppKit bottom-left origin (primary screen).
-        let screenHeight = NSScreen.screens.first?.frame.height ?? 0
-        let appKitY = screenHeight - caretBounds.origin.y - caretBounds.height
+        // AX gives global, top-left-origin coordinates. AppKit uses bottom-left,
+        // measured from the PRIMARY screen, so the flip constant is the primary
+        // screen's height regardless of which display the caret is on.
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        let appKitY = primaryHeight - caretBounds.origin.y - caretBounds.height
 
         let frame = NSRect(
             x: caretBounds.maxX,
