@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 swift build -c release
-APP="Cotypist.app"
+APP="CotypistDev.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp ".build/release/Cotypist" "$APP/Contents/MacOS/Cotypist"

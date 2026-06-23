@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupMenuBar()
 
         guard PermissionsManager.isAccessibilityTrusted(prompt: true) else {
-            NSLog("Cotypist: grant Accessibility permission in System Settings, then relaunch.")
+            NSLog("CotypistDev: grant Accessibility permission in System Settings, then relaunch.")
             return
         }
 
@@ -21,14 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // move the tap to a dedicated thread for lower keystroke latency — hop
             // to main explicitly now so AppKit (overlay.hide) stays correct then.
             DispatchQueue.main.async {
-                NSLog("Cotypist: ACCEPTED suggestion")
+                NSLog("CotypistDev: ACCEPTED suggestion")
                 self?.overlay.hide()
                 self?.eventTap.suggestionVisible = false
             }
         }
 
         if !eventTap.start() {
-            NSLog("Cotypist: failed to create event tap — check Accessibility/Input Monitoring.")
+            NSLog("CotypistDev: failed to create event tap — check Accessibility/Input Monitoring.")
         }
     }
 
@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = "⌨︎"
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Quit Cotypist",
-                                action: #selector(NSApplication.terminate(_:)),
+                                action: #selector(NSApplication.terminate(_:)), // quit CotypistDev
                                 keyEquivalent: "q"))
         item.menu = menu
         statusItem = item
@@ -55,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             let context = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
-            NSLog("Cotypist: prefix=\"\(context.prefix.suffix(20))\" caret=\(readout.caretIndex)")
+            NSLog("CotypistDev: prefix=\"\(context.prefix.suffix(20))\" caret=\(readout.caretIndex)")
 
             let suggestion = " hello" // dummy engine — proves the pipeline
             self.overlay.show(text: suggestion, caretBounds: bounds)
