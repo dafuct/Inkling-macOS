@@ -23,16 +23,30 @@ public enum CompletionPrompt {
         return s
     }
 
-    /// Decide the exact text to insert at the caret.
-    /// - midWord: the caret is inside a partial word, so the continuation
-    ///   completes it — inserted with no leading space.
-    /// - otherwise the continuation is a new word — inserted with a single
-    ///   leading space, unless the prefix already ends with whitespace.
+    /// Decide the exact text to insert at the caret, given the model's raw
+    /// continuation, the partial word under the caret, whether that word is a
+    /// common complete word, and whether the prefix ends with whitespace.
+    ///
+    /// Cases handled:
+    /// - The model restates the word being typed (caret after "h", model says
+    ///   "how are you") → insert only the new part ("ow are you").
+    /// - A partial word the model completes with a suffix ("hel" + "p") → no space.
+    /// - A new word after a complete word ("the" + "park") → leading space.
+    /// - After whitespace → inserted as-is.
     public static func inlineSuggestion(
-        continuation: String, midWord: Bool, prefixEndsWithSpace: Bool
+        continuation: String,
+        currentWord: String,
+        currentWordIsComplete: Bool,
+        prefixEndsWithSpace: Bool
     ) -> String {
         guard !continuation.isEmpty else { return "" }
-        if midWord { return continuation }
-        return prefixEndsWithSpace ? continuation : " " + continuation
+        if !currentWord.isEmpty,
+            continuation.lowercased().hasPrefix(currentWord.lowercased()) {
+            return String(continuation.dropFirst(currentWord.count))
+        }
+        if currentWord.isEmpty {
+            return prefixEndsWithSpace ? continuation : " " + continuation
+        }
+        return currentWordIsComplete ? " " + continuation : continuation
     }
 }

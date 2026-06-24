@@ -45,13 +45,12 @@ actor MLXEngine: SuggestionEngine {
             }
 
             let cleaned = CompletionPrompt.clean(raw)
-            // Mid-word (complete the current token, no leading space) only when the
-            // partial word isn't a common complete word the model continues past.
-            let cw = context.currentWord.lowercased()
-            let midWord = !cw.isEmpty && !ModelConfig.completeShortWords.contains(cw)
+            let cw = context.currentWord
+            let isComplete = ModelConfig.completeShortWords.contains(cw.lowercased())
             let endsWithSpace = promptText.last.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? true
             return CompletionPrompt.inlineSuggestion(
-                continuation: cleaned, midWord: midWord, prefixEndsWithSpace: endsWithSpace)
+                continuation: cleaned, currentWord: cw,
+                currentWordIsComplete: isComplete, prefixEndsWithSpace: endsWithSpace)
         } catch {
             NSLog("Inkling: MLXEngine error: \(error)")
             return ""

@@ -24,27 +24,44 @@ final class CompletionPromptTests: XCTestCase {
         XCTAssertEqual(CompletionPrompt.clean(""), "")
     }
 
-    func test_inline_midWordCompletesNoSpace() {
+    func test_inline_stripsRestatedWord() {
+        // caret after "h", model restates "how are you" -> insert "ow are you"
         XCTAssertEqual(
-            CompletionPrompt.inlineSuggestion(continuation: "p me", midWord: true, prefixEndsWithSpace: false),
+            CompletionPrompt.inlineSuggestion(
+                continuation: "how are you", currentWord: "h",
+                currentWordIsComplete: false, prefixEndsWithSpace: false),
+            "ow are you")
+    }
+
+    func test_inline_partialWordSuffixNoSpace() {
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(
+                continuation: "p me", currentWord: "hel",
+                currentWordIsComplete: false, prefixEndsWithSpace: false),
             "p me")
     }
 
-    func test_inline_newWordAddsSpace() {
+    func test_inline_completeWordAddsSpace() {
         XCTAssertEqual(
-            CompletionPrompt.inlineSuggestion(continuation: "library", midWord: false, prefixEndsWithSpace: false),
-            " library")
+            CompletionPrompt.inlineSuggestion(
+                continuation: "park", currentWord: "the",
+                currentWordIsComplete: true, prefixEndsWithSpace: false),
+            " park")
     }
 
-    func test_inline_newWordAfterSpaceNoExtraSpace() {
+    func test_inline_afterSpaceNoExtraSpace() {
         XCTAssertEqual(
-            CompletionPrompt.inlineSuggestion(continuation: "library", midWord: false, prefixEndsWithSpace: true),
+            CompletionPrompt.inlineSuggestion(
+                continuation: "library", currentWord: "",
+                currentWordIsComplete: false, prefixEndsWithSpace: true),
             "library")
     }
 
     func test_inline_emptyStaysEmpty() {
         XCTAssertEqual(
-            CompletionPrompt.inlineSuggestion(continuation: "", midWord: false, prefixEndsWithSpace: false),
+            CompletionPrompt.inlineSuggestion(
+                continuation: "", currentWord: "x",
+                currentWordIsComplete: false, prefixEndsWithSpace: false),
             "")
     }
 }
