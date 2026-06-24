@@ -8,3 +8,4 @@ CLAUDE.md
 .swiftpm/
 *.app
 /models/
+.xcbuild/
