@@ -18,16 +18,6 @@ enum ModelConfig {
     static let maxTokens = 12
     static let promptMaxChars = 400
 
-    /// Common complete words: when the caret sits right after one of these (no
-    /// trailing space), the model continues with a NEW word, so we add a leading
-    /// space. Any other partial word is treated as something the model completes.
-    static let completeShortWords: Set<String> = [
-        "the", "a", "an", "and", "or", "but", "to", "of", "in", "on", "at", "for",
-        "is", "are", "was", "were", "be", "i", "you", "he", "she", "it", "we",
-        "they", "this", "that", "with", "as", "by", "next", "last", "my", "your",
-        "his", "her", "our", "their", "so", "if", "no", "yes", "do", "did", "can",
-    ]
-
     /// Role instruction: behave as a completion engine, not a chat assistant.
     static let systemInstruction =
         "You are an inline text autocomplete. Output only the text that comes next. If "

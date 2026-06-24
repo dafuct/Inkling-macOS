@@ -50,12 +50,10 @@ actor MLXEngine: SuggestionEngine {
             }
 
             let cleaned = CompletionPrompt.clean(raw)
-            let cw = context.currentWord
-            let isComplete = ModelConfig.completeShortWords.contains(cw.lowercased())
             let endsWithSpace = promptText.last.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? true
             return CompletionPrompt.inlineSuggestion(
-                continuation: cleaned, currentWord: cw,
-                currentWordIsComplete: isComplete, prefixEndsWithSpace: endsWithSpace)
+                continuation: cleaned, currentWord: context.currentWord,
+                prefixEndsWithSpace: endsWithSpace)
         } catch {
             NSLog("Inkling: MLXEngine error: \(error)")
             return ""

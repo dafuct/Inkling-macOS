@@ -24,19 +24,20 @@ public enum CompletionPrompt {
     }
 
     /// Decide the exact text to insert at the caret, given the model's raw
-    /// continuation, the partial word under the caret, whether that word is a
-    /// common complete word, and whether the prefix ends with whitespace.
+    /// continuation, the partial word under the caret, and whether the prefix
+    /// ends with whitespace.
     ///
     /// Cases handled:
     /// - The model restates the word being typed (caret after "h", model says
     ///   "how are you") → insert only the new part ("ow are you").
-    /// - A partial word the model completes with a suffix ("hel" + "p") → no space.
-    /// - A new word after a complete word ("the" + "park") → leading space.
-    /// - After whitespace → inserted as-is.
+    /// - The caret is in/after a word (no trailing space) → the continuation
+    ///   completes it; inserted with no leading space (so "a"+"pproach"="approach",
+    ///   never "a pproach"). Trade-off: a complete word followed by a paused new
+    ///   word can glue, which self-corrects once a space is typed.
+    /// - After whitespace → a new word; inserted as-is.
     public static func inlineSuggestion(
         continuation: String,
         currentWord: String,
-        currentWordIsComplete: Bool,
         prefixEndsWithSpace: Bool
     ) -> String {
         guard !continuation.isEmpty else { return "" }
@@ -47,6 +48,6 @@ public enum CompletionPrompt {
         if currentWord.isEmpty {
             return prefixEndsWithSpace ? continuation : " " + continuation
         }
-        return currentWordIsComplete ? " " + continuation : continuation
+        return continuation
     }
 }
