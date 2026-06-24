@@ -5,19 +5,37 @@ import MLXHuggingFace
 import Tokenizers
 
 // Usage: InklingBench <model-directory>
-// Loads a local MLX model, runs a few completion prompts, prints output + tok/s.
+// Mirrors MLXEngine's few-shot continuation prompt to gauge completion quality.
 guard CommandLine.arguments.count >= 2 else {
     print("usage: InklingBench <model-directory>")
     exit(1)
 }
 let modelDir = URL(filePath: CommandLine.arguments[1])
 
+let system =
+    "You are an inline text autocomplete. Given a text fragment, output only the "
+    + "text that comes next — first completing the current word if it is partial, "
+    + "then continuing naturally. Output just the continuation: no greeting, no "
+    + "explanation, no quotes, and never repeat the user's text."
+
+func fewShot(_ text: String) -> String {
+    // The text right after "Continuation:" IS the literal insertion — a leading
+    // space means a new word, no leading space means completing the current word.
+    "Continue the writing. Output only the text to insert at the cursor: begin with"
+    + " a space for a new word, or no space to finish the current word.\n\n"
+    + "Text: The quick brown fox\nContinuation: jumps over the lazy dog\n"
+    + "Text: I was wondering if you could hel\nContinuation:p me with something\n"
+    + "Text: hello, ho\nContinuation:w are you doing\n"
+    + "Text: Let me know if you have any\nContinuation: questions\n"
+    + "Text: \(text)\nContinuation:"
+}
+
 let prompts = [
+    "hello, ho",
     "I think we should go to the",
     "Can you please send me the",
+    "Thanks so much for your hel",
     "The meeting is scheduled for next",
-    "Thanks so much for your",
-    "Let me know if you have any",
 ]
 
 print("loading \(modelDir.lastPathComponent) …")
@@ -26,12 +44,11 @@ let container = try await loadModelContainer(from: modelDir, using: #huggingFace
 print("loaded in \(Int(Date().timeIntervalSince(loadStart) * 1000)) ms\n")
 
 for prompt in prompts {
-    let system = "You are an inline autocomplete. Continue the user's text. Reply with ONLY the next few words that naturally follow — no greeting, no explanation, no quotes, do not repeat their text."
-    let userInput = UserInput(chat: [.system(system), .user(prompt)])
-    let lmInput = try await container.prepare(input: userInput)
+    let input = UserInput(chat: [.system(system), .user(fewShot(prompt))])
+    let lmInput = try await container.prepare(input: input)
     var params = GenerateParameters()
-    params.maxTokens = 8
-    params.temperature = 0   // greedy — deterministic completion, less noise
+    params.maxTokens = 12
+    params.temperature = 0
     let start = Date()
     var out = ""
     let stream = try await container.generate(input: lmInput, parameters: params)

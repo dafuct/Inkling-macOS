@@ -4,10 +4,20 @@ import Foundation
 enum ModelConfig {
     /// Absolute path so it resolves when the app is launched via `open` (CWD = /).
     static let modelDirectory = URL(
-        filePath: "/Users/makar/dev/own-cotypist/models/Qwen2.5-1.5B-Instruct-4bit")
+        filePath: "/Users/makar/dev/own-cotypist/models/Qwen2.5-3B-Instruct-4bit")
 
     static let maxTokens = 12
     static let promptMaxChars = 400
+
+    /// Common complete words: when the caret sits right after one of these (no
+    /// trailing space), the model continues with a NEW word, so we add a leading
+    /// space. Any other partial word is treated as something the model completes.
+    static let completeShortWords: Set<String> = [
+        "the", "a", "an", "and", "or", "but", "to", "of", "in", "on", "at", "for",
+        "is", "are", "was", "were", "be", "i", "you", "he", "she", "it", "we",
+        "they", "this", "that", "with", "as", "by", "next", "last", "my", "your",
+        "his", "her", "our", "their", "so", "if", "no", "yes", "do", "did", "can",
+    ]
 
     /// Role instruction: behave as a completion engine, not a chat assistant.
     static let systemInstruction =
@@ -17,7 +27,8 @@ enum ModelConfig {
         + "explanation, no quotes, and never repeat the user's text."
 
     /// Few-shot user message that strongly biases the instruct model toward
-    /// continuation (including partial-word completion) instead of chatting.
+    /// continuation (incl. partial-word completion) instead of chatting. The
+    /// "hello, ho" example specifically breaks the assistant-greeting reflex.
     static func userMessage(for text: String) -> String {
         """
         Continue the text. Output only the next few words.
@@ -26,6 +37,8 @@ enum ModelConfig {
         Continuation: jumps over the lazy dog
         Text: I was wondering if you could hel
         Continuation: p me with something
+        Text: hello, ho
+        Continuation: w are you doing
         Text: Let me know if you have any
         Continuation: questions
         Text: \(text)
