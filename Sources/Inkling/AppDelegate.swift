@@ -4,7 +4,7 @@ import InklingCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTap = EventTapController()
     private let overlay = OverlayWindow()
-    private let engine: SuggestionEngine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
+    private var engine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
     private let debouncer = Debouncer(delay: 0.2)
     private var statusItem: NSStatusItem?
     private var currentSuggestion = ""
@@ -29,17 +29,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             NSLog("Inkling: FAILED to create event tap — check Accessibility/Input Monitoring.")
         }
+
+        Task { await engine.preload() }
+        NSLog("Inkling: pre-warming model \(ModelConfig.currentModelName)")
     }
 
     private func setupMenuBar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = "⌨︎"
-        let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Quit Inkling",
-                                action: #selector(NSApplication.terminate(_:)),
-                                keyEquivalent: "q"))
-        item.menu = menu
         statusItem = item
+        rebuildMenu()
+    }
+
+    private func rebuildMenu() {
+        let menu = NSMenu()
+
+        let toggle = NSMenuItem(
+            title: "Suggestions Enabled", action: #selector(toggleEnabled), keyEquivalent: "")
+        toggle.target = self
+        toggle.state = Settings.enabled ? .on : .off
+        menu.addItem(toggle)
+
+        menu.addItem(.separator())
+        let header = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        for name in ModelCatalog.availableModels(in: ModelConfig.modelsRoot) {
+            let mi = NSMenuItem(title: name, action: #selector(selectModel(_:)), keyEquivalent: "")
+            mi.target = self
+            mi.representedObject = name
+            mi.state = (name == ModelConfig.currentModelName) ? .on : .off
+            menu.addItem(mi)
+        }
+
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(
+            title: "Quit Inkling", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+
+        statusItem?.menu = menu
+    }
+
+    @objc private func toggleEnabled() {
+        Settings.enabled.toggle()
+        if !Settings.enabled { dismiss() }
+        NSLog("Inkling: enabled=\(Settings.enabled)")
+        rebuildMenu()
+    }
+
+    @objc private func selectModel(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String, name != ModelConfig.currentModelName
+        else { return }
+        Settings.selectedModel = name
+        dismiss()
+        engine = MLXEngine(modelDirectory: ModelConfig.directory(for: name))
+        Task { await engine.preload() }
+        NSLog("Inkling: switched model to \(name)")
+        rebuildMenu()
     }
 
     /// A non-accept keystroke: hide the stale suggestion immediately (dismiss on
@@ -48,6 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.dismiss()
+            guard Settings.enabled else { return }
             self.debouncer.schedule { [weak self] in self?.refreshSuggestion() }
         }
     }
