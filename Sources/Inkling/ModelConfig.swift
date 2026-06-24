@@ -30,10 +30,10 @@ enum ModelConfig {
 
     /// Role instruction: behave as a completion engine, not a chat assistant.
     static let systemInstruction =
-        "You are an inline text autocomplete. Given a text fragment, output only the "
-        + "text that comes next — first completing the current word if it is partial, "
-        + "then continuing naturally. Output just the continuation: no greeting, no "
-        + "explanation, no quotes, and never repeat the user's text."
+        "You are an inline text autocomplete. Output only the text that comes next. If "
+        + "the text stops in the middle of a word, finish that exact word first, then "
+        + "continue naturally. Never restart the sentence, never greet, never explain, "
+        + "never use quotes, and never repeat the user's text."
 
     /// Few-shot user message that strongly biases the instruct model toward
     /// continuation (incl. partial-word completion) instead of chatting. The
@@ -46,6 +46,8 @@ enum ModelConfig {
         Continuation: jumps over the lazy dog
         Text: I was wondering if you could hel
         Continuation: p me with something
+        Text: I am fine thank you, I have a sugg
+        Continuation: estion for you
         Text: hello, ho
         Continuation: w are you doing
         Text: Let me know if you have any
