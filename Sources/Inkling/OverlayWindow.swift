@@ -29,13 +29,11 @@ final class OverlayWindow {
     }
 
     /// `caretBounds` is in global display coords (top-left origin), as returned
-    /// by Accessibility. Draws the text on the caret's line, sized to match it.
-    func show(text: String, caretBounds: CGRect) {
-        // The caret's height tracks the line's font size, so scale the ghost text
-        // to it — this makes it read like a continuation of the typed words
-        // instead of a fixed-size overlay.
+    /// by Accessibility. Draws the text on the caret's line, matching the typed
+    /// text's font when Accessibility provides it, else scaling to the line height.
+    func show(text: String, caretBounds: CGRect, font: NSFont?) {
         let lineHeight = max(caretBounds.height, 12)
-        label.font = .systemFont(ofSize: max(9, min(40, lineHeight * 0.80)))
+        label.font = font ?? .systemFont(ofSize: max(9, min(40, lineHeight * 0.80)))
         label.stringValue = text
         label.sizeToFit()
         let textSize = label.frame.size

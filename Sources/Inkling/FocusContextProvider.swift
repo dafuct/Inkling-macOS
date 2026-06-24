@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import CoreGraphics
 
@@ -6,6 +7,7 @@ struct CaretReadout {
     let text: String
     let caretIndex: Int        // UTF-16 offset
     let caretBounds: CGRect?   // global display coords, top-left origin
+    let font: NSFont?          // the focused text's font, if Accessibility exposes it
 }
 
 enum FocusContextProvider {
@@ -77,6 +79,34 @@ enum FocusContextProvider {
 
         let caretBounds = bounds(forLocation: caretIndex) ?? bounds(forLocation: caretIndex - 1)
 
-        return CaretReadout(text: text, caretIndex: caretIndex, caretBounds: caretBounds)
+        // The font of the text near the caret, so the ghost text matches exactly.
+        func font(forLocation loc: Int) -> NSFont? {
+            guard loc >= 0 else { return nil }
+            var range = CFRange(location: loc, length: 1)
+            guard let rangeValue = AXValueCreate(.cfRange, &range) else { return nil }
+            var ref: CFTypeRef?
+            guard AXUIElementCopyParameterizedAttributeValue(
+                element,
+                kAXAttributedStringForRangeParameterizedAttribute as CFString,
+                rangeValue,
+                &ref
+            ) == .success, let attr = ref as? NSAttributedString, attr.length > 0 else { return nil }
+            if let f = attr.attribute(.font, at: 0, effectiveRange: nil) as? NSFont {
+                return f
+            }
+            // Some apps expose an AX font dictionary instead of an NSFont.
+            if let dict = attr.attribute(NSAttributedString.Key("AXFont"), at: 0, effectiveRange: nil) as? [String: Any],
+               let size = (dict["AXFontSize"] as? CGFloat) ?? (dict["AXFontSize"] as? Double).map({ CGFloat($0) }) {
+                if let name = dict["AXFontName"] as? String, let f = NSFont(name: name, size: size) {
+                    return f
+                }
+                return NSFont.systemFont(ofSize: size)
+            }
+            return nil
+        }
+        let caretFont = font(forLocation: max(0, caretIndex - 1)) ?? font(forLocation: caretIndex)
+
+        return CaretReadout(
+            text: text, caretIndex: caretIndex, caretBounds: caretBounds, font: caretFont)
     }
 }

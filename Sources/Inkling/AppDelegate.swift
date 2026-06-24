@@ -71,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let context = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
+        let font = readout.font
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
@@ -80,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self else { return }
                 guard !suggestion.isEmpty else { self.dismiss(); return }
                 self.currentSuggestion = suggestion
-                self.overlay.show(text: suggestion, caretBounds: bounds)
+                self.overlay.show(text: suggestion, caretBounds: bounds, font: font)
                 self.eventTap.suggestionVisible = true
                 NSLog("Inkling: showing \"\(suggestion)\"")
             }
@@ -107,7 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let readout = FocusContextProvider.currentReadout(),
                   let bounds = readout.caretBounds else { return }
             self.currentSuggestion = remainder
-            self.overlay.show(text: remainder, caretBounds: bounds)
+            self.overlay.show(text: remainder, caretBounds: bounds, font: readout.font)
             self.eventTap.suggestionVisible = true
         }
     }
