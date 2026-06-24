@@ -23,12 +23,16 @@ public enum CompletionPrompt {
         return s
     }
 
-    /// Prepend a single space when appending `continuation` directly after a word
-    /// character would glue two words together (the model returns a new word and
-    /// the caret sits right after a complete word).
-    public static func spaced(continuation: String, afterWordChar endsWithWord: Bool) -> String {
+    /// Decide the exact text to insert at the caret.
+    /// - midWord: the caret is inside a partial word, so the continuation
+    ///   completes it — inserted with no leading space.
+    /// - otherwise the continuation is a new word — inserted with a single
+    ///   leading space, unless the prefix already ends with whitespace.
+    public static func inlineSuggestion(
+        continuation: String, midWord: Bool, prefixEndsWithSpace: Bool
+    ) -> String {
         guard !continuation.isEmpty else { return "" }
-        let firstIsWord = continuation.first.map { $0.isLetter || $0.isNumber } ?? false
-        return (endsWithWord && firstIsWord) ? " " + continuation : continuation
+        if midWord { return continuation }
+        return prefixEndsWithSpace ? continuation : " " + continuation
     }
 }

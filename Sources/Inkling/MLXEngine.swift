@@ -30,7 +30,7 @@ actor MLXEngine: SuggestionEngine {
             let container = try await loadedContainer()
             let input = UserInput(chat: [
                 .system(ModelConfig.systemInstruction),
-                .user(promptText),
+                .user(ModelConfig.userMessage(for: promptText)),
             ])
             let lmInput = try await container.prepare(input: input)
             var params = GenerateParameters()
@@ -45,8 +45,10 @@ actor MLXEngine: SuggestionEngine {
             }
 
             let cleaned = CompletionPrompt.clean(raw)
-            let endsWithWord = promptText.last.map { $0.isLetter || $0.isNumber } ?? false
-            return CompletionPrompt.spaced(continuation: cleaned, afterWordChar: endsWithWord)
+            let midWord = !context.currentWord.isEmpty
+            let endsWithSpace = promptText.last.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? true
+            return CompletionPrompt.inlineSuggestion(
+                continuation: cleaned, midWord: midWord, prefixEndsWithSpace: endsWithSpace)
         } catch {
             NSLog("Inkling: MLXEngine error: \(error)")
             return ""

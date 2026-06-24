@@ -24,15 +24,27 @@ final class CompletionPromptTests: XCTestCase {
         XCTAssertEqual(CompletionPrompt.clean(""), "")
     }
 
-    func test_spaced_addsSpaceBetweenWords() {
-        XCTAssertEqual(CompletionPrompt.spaced(continuation: "library", afterWordChar: true), " library")
+    func test_inline_midWordCompletesNoSpace() {
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(continuation: "p me", midWord: true, prefixEndsWithSpace: false),
+            "p me")
     }
 
-    func test_spaced_noSpaceWhenNotAfterWord() {
-        XCTAssertEqual(CompletionPrompt.spaced(continuation: "library", afterWordChar: false), "library")
+    func test_inline_newWordAddsSpace() {
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(continuation: "library", midWord: false, prefixEndsWithSpace: false),
+            " library")
     }
 
-    func test_spaced_noSpaceWhenContinuationStartsNonWord() {
-        XCTAssertEqual(CompletionPrompt.spaced(continuation: ".com", afterWordChar: true), ".com")
+    func test_inline_newWordAfterSpaceNoExtraSpace() {
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(continuation: "library", midWord: false, prefixEndsWithSpace: true),
+            "library")
+    }
+
+    func test_inline_emptyStaysEmpty() {
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(continuation: "", midWord: false, prefixEndsWithSpace: false),
+            "")
     }
 }
