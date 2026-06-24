@@ -54,6 +54,10 @@ final class EventTapController {
             return Unmanaged.passUnretained(event)
         }
         if type == .keyDown {
+            // Ignore keystrokes we synthesized ourselves (accepted text).
+            if event.getIntegerValueField(.eventSourceUserData) == TextInserter.marker {
+                return Unmanaged.passUnretained(event)
+            }
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
             if suggestionVisible {
                 if keyCode == tabKeyCode { onAccept?(); return nil }   // swallow Tab

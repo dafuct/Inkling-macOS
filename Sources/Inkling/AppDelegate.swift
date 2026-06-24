@@ -87,18 +87,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Tab inserts the next word of the suggestion. With the Phase 1 dummy engine
-    /// the suggestion is a single word, so `remainder` is always empty; the
-    /// inserted keystrokes re-enter the tap and trigger a fresh debounced query.
-    /// PHASE 2 PRE-WORK: once the real engine emits multi-word suggestions,
-    /// re-show `split.remainder` as ghost text here instead of dropping it.
+    /// Tab inserts the next word; the rest of the SAME suggestion stays shown as
+    /// ghost text (re-anchored at the new caret) so word-by-word accept doesn't
+    /// re-query and change the completion. Our inserted keystrokes are tagged and
+    /// ignored by the event tap, so they don't trigger a fresh query.
     private func acceptNextWord() {
         let split = SuggestionSplitter.nextChunk(of: currentSuggestion)
         guard !split.chunk.isEmpty else { dismiss(); return }
         overlay.hide()
         eventTap.suggestionVisible = false
-        TextInserter.insert(split.chunk)
-        NSLog("Inkling: accepted \"\(split.chunk)\", remainder=\"\(split.remainder)\"")
         currentSuggestion = ""
+        TextInserter.insert(split.chunk)
+        NSLog("Inkling: accepted \"\(split.chunk)\"")
+
+        let remainder = split.remainder
+        guard !remainder.isEmpty else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self else { return }
+            guard let readout = FocusContextProvider.currentReadout(),
+                  let bounds = readout.caretBounds else { return }
+            self.currentSuggestion = remainder
+            self.overlay.show(text: remainder, caretBounds: bounds)
+            self.eventTap.suggestionVisible = true
+        }
     }
 }
