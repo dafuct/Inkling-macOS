@@ -13,10 +13,11 @@ guard CommandLine.arguments.count >= 2 else {
 let modelDir = URL(filePath: CommandLine.arguments[1])
 
 let prompts = [
-    "I ne",
-    "How ar",
-    "The quick brown fox jum",
-    "Thank you for your he",
+    "I think we should go to the",
+    "Can you please send me the",
+    "The meeting is scheduled for next",
+    "Thanks so much for your",
+    "Let me know if you have any",
 ]
 
 print("loading \(modelDir.lastPathComponent) …")
@@ -25,8 +26,8 @@ let container = try await loadModelContainer(from: modelDir, using: #huggingFace
 print("loaded in \(Int(Date().timeIntervalSince(loadStart) * 1000)) ms\n")
 
 for prompt in prompts {
-    var userInput = UserInput(prompt: prompt)
-    userInput.prompt = .text(prompt)   // raw completion — bypass the chat template
+    let system = "You are an inline autocomplete. Continue the user's text. Reply with ONLY the next few words that naturally follow — no greeting, no explanation, no quotes, do not repeat their text."
+    let userInput = UserInput(chat: [.system(system), .user(prompt)])
     let lmInput = try await container.prepare(input: userInput)
     var params = GenerateParameters()
     params.maxTokens = 8
