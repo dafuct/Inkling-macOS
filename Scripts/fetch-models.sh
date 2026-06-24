@@ -7,12 +7,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p models
 
-# BASE (completion) models — they continue the user's text inline. Do NOT use
-# -Instruct/chat models here: those reply conversationally instead of completing.
+# INSTRUCT models steered to continue via a few-shot prompt (see ModelConfig).
+# Base/completion models were tried and rejected: the 4-bit base conversions
+# produce garbage. gemma-4-e4b is the best quality; the Qwen instructs are
+# faster/lighter alternatives. (gemma-4-e4b-it-4bit is ~4.9GB.)
 models=(
-  "mlx-community/Qwen2.5-0.5B-4bit"
-  "mlx-community/Llama-3.2-1B-4bit"
-  "mlx-community/Qwen2.5-1.5B-4bit"
+  "mlx-community/gemma-4-e4b-it-4bit"
+  "mlx-community/Qwen2.5-3B-Instruct-4bit"
+  "mlx-community/Qwen2.5-1.5B-Instruct-4bit"
 )
 for repo in "${models[@]}"; do
   name="${repo##*/}"
