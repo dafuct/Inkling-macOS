@@ -29,26 +29,29 @@ final class OverlayWindow {
     }
 
     /// `caretBounds` is in global display coords (top-left origin), as returned
-    /// by Accessibility. Draws the text to the right of the caret.
+    /// by Accessibility. Draws the text on the caret's line, sized to match it.
     func show(text: String, caretBounds: CGRect) {
+        // The caret's height tracks the line's font size, so scale the ghost text
+        // to it — this makes it read like a continuation of the typed words
+        // instead of a fixed-size overlay.
+        let lineHeight = max(caretBounds.height, 12)
+        label.font = .systemFont(ofSize: max(9, min(40, lineHeight * 0.80)))
         label.stringValue = text
         label.sizeToFit()
-        let size = label.frame.size
+        let textSize = label.frame.size
 
         // AX gives global, top-left-origin coordinates. AppKit uses bottom-left,
         // measured from the PRIMARY screen, so the flip constant is the primary
         // screen's height regardless of which display the caret is on.
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        let appKitY = primaryHeight - caretBounds.origin.y - caretBounds.height
+        let appKitY = primaryHeight - caretBounds.origin.y - lineHeight
 
-        let frame = NSRect(
-            x: caretBounds.maxX,
-            y: appKitY,
-            width: size.width + 4,
-            height: max(size.height, caretBounds.height)
-        )
-        window.setFrame(frame, display: true)
-        label.frame = NSRect(x: 2, y: 0, width: size.width, height: frame.height)
+        window.setFrame(
+            NSRect(x: caretBounds.maxX, y: appKitY, width: textSize.width + 4, height: lineHeight),
+            display: true)
+        // Center the text vertically on the line so it sits on the same baseline.
+        let y = (lineHeight - textSize.height) / 2
+        label.frame = NSRect(x: 2, y: y, width: textSize.width, height: textSize.height)
         window.orderFrontRegardless()
     }
 
