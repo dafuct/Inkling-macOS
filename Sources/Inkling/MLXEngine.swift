@@ -15,6 +15,11 @@ actor MLXEngine: SuggestionEngine {
         self.modelDirectory = modelDirectory
     }
 
+    /// Loads the model now so the first real suggestion isn't delayed.
+    func preload() async {
+        _ = try? await loadedContainer()
+    }
+
     private func loadedContainer() async throws -> ModelContainer {
         if let container { return container }
         let c = try await loadModelContainer(
