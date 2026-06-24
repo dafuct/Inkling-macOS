@@ -25,9 +25,12 @@ let container = try await loadModelContainer(from: modelDir, using: #huggingFace
 print("loaded in \(Int(Date().timeIntervalSince(loadStart) * 1000)) ms\n")
 
 for prompt in prompts {
-    let lmInput = try await container.prepare(input: UserInput(prompt: prompt))
+    var userInput = UserInput(prompt: prompt)
+    userInput.prompt = .text(prompt)   // raw completion — bypass the chat template
+    let lmInput = try await container.prepare(input: userInput)
     var params = GenerateParameters()
     params.maxTokens = 8
+    params.temperature = 0   // greedy — deterministic completion, less noise
     let start = Date()
     var out = ""
     let stream = try await container.generate(input: lmInput, parameters: params)

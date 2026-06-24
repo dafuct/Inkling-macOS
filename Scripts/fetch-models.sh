@@ -7,10 +7,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p models
 
+# BASE (completion) models — they continue the user's text inline. Do NOT use
+# -Instruct/chat models here: those reply conversationally instead of completing.
 models=(
-  "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-  "mlx-community/Llama-3.2-1B-Instruct-4bit"
-  "mlx-community/Qwen2.5-1.5B-Instruct-4bit"
+  "mlx-community/Qwen2.5-0.5B-4bit"
+  "mlx-community/Llama-3.2-1B-4bit"
+  "mlx-community/Qwen2.5-1.5B-4bit"
 )
 for repo in "${models[@]}"; do
   name="${repo##*/}"
