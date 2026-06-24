@@ -1,8 +1,8 @@
 import CoreGraphics
 import Foundation
 
-/// Owns a CGEventTap. When a suggestion is visible it swallows Tab (accept) and
-/// Esc (dismiss); otherwise it passes keys through and reports them.
+/// Owns a CGEventTap. When a suggestion is visible it swallows backtick (accept)
+/// and Esc (dismiss); otherwise it passes keys through and reports them.
 final class EventTapController {
     var suggestionVisible = false
     var onKeyDown: (() -> Void)?
@@ -11,7 +11,7 @@ final class EventTapController {
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private let tabKeyCode: Int64 = 0x30  // kVK_Tab
+    private let acceptKeyCode: Int64 = 0x32  // kVK_ANSI_Grave (backtick `)
     private let escKeyCode: Int64 = 0x35  // kVK_Escape
 
     func start() -> Bool {
@@ -60,7 +60,7 @@ final class EventTapController {
             }
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
             if suggestionVisible {
-                if keyCode == tabKeyCode { onAccept?(); return nil }   // swallow Tab
+                if keyCode == acceptKeyCode { onAccept?(); return nil }   // swallow ` (accept)
                 if keyCode == escKeyCode { onDismiss?(); return nil }  // swallow Esc
             }
             onKeyDown?()
