@@ -2,33 +2,38 @@ import XCTest
 @testable import InklingCore
 
 final class SuggestionEngineTests: XCTestCase {
-    func test_dummyEngine_completesCurrentWordInline() {
+    func test_dummyEngine_completesCurrentWordInline() async {
         let engine = DummyEngine()
         let ctx = TextContext(fullText: "hel", caretIndex: 3)
-        XCTAssertEqual(engine.suggestion(for: ctx), "lo")   // hel -> hello
+        let result = await engine.suggestion(for: ctx)
+        XCTAssertEqual(result, "lo")   // hel -> hello
     }
 
-    func test_dummyEngine_completesDifferentPrefixes() {
+    func test_dummyEngine_completesDifferentPrefixes() async {
         let engine = DummyEngine()
         let ctx = TextContext(fullText: "I live in a ho", caretIndex: 14)
-        XCTAssertEqual(engine.suggestion(for: ctx), "use")  // ho -> house
+        let result = await engine.suggestion(for: ctx)
+        XCTAssertEqual(result, "use")  // ho -> house
     }
 
-    func test_dummyEngine_returnsEmptyWhenNoPartialWord() {
+    func test_dummyEngine_returnsEmptyWhenNoPartialWord() async {
         let engine = DummyEngine()
         let ctx = TextContext(fullText: "hello ", caretIndex: 6)  // currentWord ""
-        XCTAssertEqual(engine.suggestion(for: ctx), "")
+        let result = await engine.suggestion(for: ctx)
+        XCTAssertEqual(result, "")
     }
 
-    func test_dummyEngine_returnsEmptyWhenNoMatch() {
+    func test_dummyEngine_returnsEmptyWhenNoMatch() async {
         let engine = DummyEngine()
         let ctx = TextContext(fullText: "xq", caretIndex: 2)
-        XCTAssertEqual(engine.suggestion(for: ctx), "")
+        let result = await engine.suggestion(for: ctx)
+        XCTAssertEqual(result, "")
     }
 
-    func test_dummyEngine_returnsEmptyWhenWordAlreadyComplete() {
+    func test_dummyEngine_returnsEmptyWhenWordAlreadyComplete() async {
         let engine = DummyEngine()
         let ctx = TextContext(fullText: "hello", caretIndex: 5)  // exact match, no suffix
-        XCTAssertEqual(engine.suggestion(for: ctx), "")
+        let result = await engine.suggestion(for: ctx)
+        XCTAssertEqual(result, "")
     }
 }

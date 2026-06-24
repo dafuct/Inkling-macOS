@@ -3,7 +3,7 @@
 /// space). Phase 2 will add an MLX-backed conformer; callers depend only on this.
 public protocol SuggestionEngine {
     /// The text to show as ghost text after the caret, or "" for no suggestion.
-    func suggestion(for context: TextContext) -> String
+    func suggestion(for context: TextContext) async -> String
 }
 
 /// Phase 1 placeholder: completes the word currently being typed from a small
@@ -19,7 +19,7 @@ public struct DummyEngine: SuggestionEngine {
 
     public init() {}
 
-    public func suggestion(for context: TextContext) -> String {
+    public func suggestion(for context: TextContext) async -> String {
         let word = context.currentWord.lowercased()
         guard !word.isEmpty else { return "" }
         guard let match = Self.words.first(where: { $0.hasPrefix(word) && $0.count > word.count })

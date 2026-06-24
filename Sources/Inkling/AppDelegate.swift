@@ -4,10 +4,11 @@ import InklingCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTap = EventTapController()
     private let overlay = OverlayWindow()
-    private let engine: SuggestionEngine = DummyEngine()
+    private let engine: SuggestionEngine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
     private let debouncer = Debouncer(delay: 0.2)
     private var statusItem: NSStatusItem?
     private var currentSuggestion = ""
+    private var suggestionTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -52,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func dismiss() {
+        suggestionTask?.cancel()
         overlay.hide()
         eventTap.suggestionVisible = false
         currentSuggestion = ""
@@ -69,13 +71,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let context = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
-        let suggestion = engine.suggestion(for: context)
-        guard !suggestion.isEmpty else { dismiss(); return }
-
-        currentSuggestion = suggestion
-        overlay.show(text: suggestion, caretBounds: bounds)
-        eventTap.suggestionVisible = true
-        NSLog("Inkling: showing \"\(suggestion)\" caret=\(readout.caretIndex)")
+        suggestionTask?.cancel()
+        suggestionTask = Task { [weak self] in
+            guard let engine = self?.engine else { return }
+            let suggestion = await engine.suggestion(for: context)
+            if Task.isCancelled { return }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                guard !suggestion.isEmpty else { self.dismiss(); return }
+                self.currentSuggestion = suggestion
+                self.overlay.show(text: suggestion, caretBounds: bounds)
+                self.eventTap.suggestionVisible = true
+                NSLog("Inkling: showing \"\(suggestion)\"")
+            }
+        }
     }
 
     /// Tab inserts the next word of the suggestion. With the Phase 1 dummy engine
