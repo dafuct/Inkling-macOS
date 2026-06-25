@@ -39,4 +39,24 @@ final class PersonalMemoryTests: XCTestCase {
         // Unknown trigram context falls back to the bigram on the last word.
         XCTAssertEqual(m.nextWordCandidates(after: ["random", "hello"]).first?.word, "world")
     }
+
+    func test_decay_prunesRareWordsBelowFloor() {
+        let m = PersonalMemory(limits: .init(decayFactor: 0.9, pruneFloor: 1.0))
+        m.learn(word: "rare", previous: [])          // count 1.0
+        for _ in 0..<5 { m.learn(word: "common", previous: []) }  // count 5.0
+        m.decay()
+        XCTAssertNil(m.wordCounts["rare"])            // 0.9 < 1.0 -> pruned
+        XCTAssertEqual(m.wordCounts["common"] ?? 0, 4.5, accuracy: 0.0001)
+    }
+
+    func test_decay_capsToMaxWords_keepingHighestCounts() {
+        let m = PersonalMemory(limits: .init(maxWords: 2, decayFactor: 1.0, pruneFloor: 0.0))
+        m.learn(word: "a", previous: [])
+        for _ in 0..<2 { m.learn(word: "b", previous: []) }
+        for _ in 0..<3 { m.learn(word: "c", previous: []) }
+        m.decay()
+        XCTAssertNil(m.wordCounts["a"])               // lowest count dropped
+        XCTAssertNotNil(m.wordCounts["b"])
+        XCTAssertNotNil(m.wordCounts["c"])
+    }
 }

@@ -57,6 +57,44 @@ public final class PersonalMemory {
     private func sorted(_ m: [String: Double]) -> [(word: String, count: Double)] {
         m.map { (word: $0.key, count: $0.value) }.sorted { $0.count > $1.count }
     }
+
+    /// Fade and bound the model: scale every count by `decayFactor`, drop
+    /// entries below `pruneFloor`, then cap to the size limits. Call sparingly
+    /// (e.g. once per launch).
+    public func decay() {
+        scale(&wordCounts)
+        wordCounts = capByValue(wordCounts, max: limits.maxWords)
+        scaleNested(&bigrams)
+        bigrams = capContexts(bigrams, max: limits.maxContexts)
+        scaleNested(&trigrams)
+        trigrams = capContexts(trigrams, max: limits.maxContexts)
+    }
+
+    private func scale(_ map: inout [String: Double]) {
+        for k in map.keys { map[k]! *= limits.decayFactor }
+        map = map.filter { $0.value >= limits.pruneFloor }
+    }
+
+    private func scaleNested(_ map: inout [String: [String: Double]]) {
+        for ctx in map.keys {
+            var inner = map[ctx]!
+            for w in inner.keys { inner[w]! *= limits.decayFactor }
+            inner = inner.filter { $0.value >= limits.pruneFloor }
+            if inner.isEmpty { map[ctx] = nil } else { map[ctx] = inner }
+        }
+    }
+
+    private func capByValue(_ map: [String: Double], max: Int) -> [String: Double] {
+        guard map.count > max else { return map }
+        let kept = map.sorted { $0.value > $1.value }.prefix(max)
+        return Dictionary(uniqueKeysWithValues: kept.map { ($0.key, $0.value) })
+    }
+
+    private func capContexts(_ map: [String: [String: Double]], max: Int) -> [String: [String: Double]] {
+        guard map.count > max else { return map }
+        let kept = map.sorted { ($0.value.values.max() ?? 0) > ($1.value.values.max() ?? 0) }.prefix(max)
+        return Dictionary(uniqueKeysWithValues: kept.map { ($0.key, $0.value) })
+    }
 }
 
 public extension PersonalMemory {
