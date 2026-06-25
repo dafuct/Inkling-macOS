@@ -10,6 +10,10 @@ import Tokenizers
 actor MLXEngine: SuggestionEngine {
     private let modelDirectory: URL
     private var container: ModelContainer?
+    private var personalization: String = ""
+
+    /// Set the comma-separated frequent-vocabulary hint to inject into prompts.
+    func setPersonalization(_ s: String) { personalization = s }
 
     init(modelDirectory: URL) {
         self.modelDirectory = modelDirectory
@@ -34,7 +38,7 @@ actor MLXEngine: SuggestionEngine {
         do {
             let container = try await loadedContainer()
             let input = UserInput(chat: [
-                .system(ModelConfig.systemInstruction),
+                .system(ModelConfig.systemInstruction(personalization: personalization)),
                 .user(ModelConfig.userMessage(for: promptText)),
             ])
             let lmInput = try await container.prepare(input: input)

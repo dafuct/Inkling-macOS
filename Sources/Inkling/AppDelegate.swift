@@ -197,9 +197,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             recorder.reset()
         }
         let font = readout.font
+        let hint = memory.frequentVocabulary(max: 6).joined(separator: ", ")
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
+            await engine.setPersonalization(hint)
             let suggestion = await engine.suggestion(for: context)
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in

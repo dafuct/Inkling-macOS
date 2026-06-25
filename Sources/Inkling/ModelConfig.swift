@@ -19,11 +19,19 @@ enum ModelConfig {
     static let promptMaxChars = 400
 
     /// Role instruction: behave as a completion engine, not a chat assistant.
-    static let systemInstruction =
+    static let baseSystemInstruction =
         "You are an inline text autocomplete. Output only the text that comes next. If "
         + "the text stops in the middle of a word, finish that exact word first, then "
         + "continue naturally. Never restart the sentence, never greet, never explain, "
         + "never use quotes, and never repeat the user's text."
+
+    /// The system instruction, optionally appended with a short list of the
+    /// writer's frequent words so the model leans toward their vocabulary.
+    static func systemInstruction(personalization: String) -> String {
+        guard !personalization.isEmpty else { return baseSystemInstruction }
+        return baseSystemInstruction
+            + " The writer frequently uses these words: \(personalization)."
+    }
 
     /// Few-shot user message that strongly biases the instruct model toward
     /// continuation (incl. partial-word completion) instead of chatting. The
