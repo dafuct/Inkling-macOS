@@ -11,6 +11,26 @@ struct CaretReadout {
 }
 
 enum FocusContextProvider {
+    /// True if the focused element is a secure (password) field. A lightweight
+    /// role/subrole check used to gate learning per keystroke.
+    static func isSecureFieldFocused() -> Bool {
+        let system = AXUIElementCreateSystemWide()
+        var focusedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            system, kAXFocusedUIElementAttribute as CFString, &focusedRef
+        ) == .success, let focusedRef,
+        CFGetTypeID(focusedRef) == AXUIElementGetTypeID() else { return false }
+        let element = focusedRef as! AXUIElement
+        let secureRole = "AXSecureTextField"
+        var roleRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef) == .success,
+           let role = roleRef as? String, role == secureRole { return true }
+        var subroleRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleRef) == .success,
+           let subrole = subroleRef as? String, subrole == secureRole { return true }
+        return false
+    }
+
     /// Reads the focused element. Returns nil for non-text or secure (password)
     /// fields, or when Accessibility exposes nothing usable.
     static func currentReadout() -> CaretReadout? {
