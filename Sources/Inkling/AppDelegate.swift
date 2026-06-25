@@ -39,7 +39,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.memoryStore.scheduleSave()
         }
         eventTap.onType = { [weak self] s in
-            DispatchQueue.main.async { self?.recorder.append(s) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                // Capture-time secure-field gate: never buffer characters typed
+                // into a password field, and drop any partial word carried in, so
+                // a secret can't survive in the buffer and be committed/learned
+                // after focus later moves to a normal field.
+                if FocusContextProvider.isSecureFieldFocused() {
+                    self.recorder.reset()
+                    return
+                }
+                self.recorder.append(s)
+            }
         }
         eventTap.onDelete = { [weak self] in
             DispatchQueue.main.async { self?.recorder.backspace() }
