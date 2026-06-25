@@ -95,6 +95,37 @@ public final class PersonalMemory {
         let kept = map.sorted { ($0.value.values.max() ?? 0) > ($1.value.values.max() ?? 0) }.prefix(max)
         return Dictionary(uniqueKeysWithValues: kept.map { ($0.key, $0.value) })
     }
+
+    /// Top frequent words suitable as an LLM vocabulary hint: at least 3 chars,
+    /// seen at least 3 times, not a common stopword. Highest-count first.
+    public func frequentVocabulary(max: Int) -> [String] {
+        wordCounts
+            .filter { $0.key.count >= 3 && $0.value >= 3 && !Self.stopwords.contains($0.key.lowercased()) }
+            .sorted { $0.value > $1.value }
+            .prefix(max)
+            .map { $0.key }
+    }
+
+    /// Replace this model's contents from a decoded snapshot.
+    public func restore(from snapshot: Snapshot) {
+        wordCounts = snapshot.wordCounts
+        bigrams = snapshot.bigrams
+        trigrams = snapshot.trigrams
+    }
+
+    /// A Codable copy of the model's contents.
+    public var snapshot: Snapshot {
+        Snapshot(wordCounts: wordCounts, bigrams: bigrams, trigrams: trigrams)
+    }
+
+    static let stopwords: Set<String> = [
+        "the", "and", "you", "that", "this", "for", "are", "was", "but", "not",
+        "with", "have", "your", "from", "they", "she", "him", "her", "his",
+        "can", "all", "would", "there", "their", "what", "out", "about", "who",
+        "get", "which", "when", "make", "like", "time", "just", "know", "people",
+        "into", "year", "good", "some", "could", "them", "see", "other", "than",
+        "then", "now", "look", "only", "come", "its", "over", "think", "also",
+    ]
 }
 
 public extension PersonalMemory {
@@ -110,6 +141,20 @@ public extension PersonalMemory {
             self.maxContexts = maxContexts
             self.decayFactor = decayFactor
             self.pruneFloor = pruneFloor
+        }
+    }
+
+    /// Serializable contents of the model.
+    struct Snapshot: Codable {
+        public var wordCounts: [String: Double]
+        public var bigrams: [String: [String: Double]]
+        public var trigrams: [String: [String: Double]]
+        public init(wordCounts: [String: Double] = [:],
+                    bigrams: [String: [String: Double]] = [:],
+                    trigrams: [String: [String: Double]] = [:]) {
+            self.wordCounts = wordCounts
+            self.bigrams = bigrams
+            self.trigrams = trigrams
         }
     }
 }

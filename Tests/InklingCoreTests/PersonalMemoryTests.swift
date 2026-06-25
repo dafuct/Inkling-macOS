@@ -59,4 +59,31 @@ final class PersonalMemoryTests: XCTestCase {
         XCTAssertNotNil(m.wordCounts["b"])
         XCTAssertNotNil(m.wordCounts["c"])
     }
+
+    func test_snapshot_roundTripsLosslessly() throws {
+        let m = PersonalMemory()
+        m.learn(word: "you", previous: ["I", "thank"])
+        let data = try JSONEncoder().encode(m.snapshot)
+        let restored = PersonalMemory()
+        restored.restore(from: try JSONDecoder().decode(PersonalMemory.Snapshot.self, from: data))
+        XCTAssertEqual(restored.wordCounts["you"], 1)
+        XCTAssertEqual(restored.nextWordCandidates(after: ["I", "thank"]).first?.word, "you")
+    }
+
+    func test_emptySnapshot_isDecodable() throws {
+        let data = try JSONEncoder().encode(PersonalMemory.Snapshot())
+        let snap = try JSONDecoder().decode(PersonalMemory.Snapshot.self, from: data)
+        let m = PersonalMemory(); m.restore(from: snap)
+        XCTAssertTrue(m.wordCounts.isEmpty)
+    }
+
+    func test_frequentVocabulary_excludesStopwordsAndShortWords_byCount() {
+        let m = PersonalMemory()
+        for _ in 0..<10 { m.learn(word: "the", previous: []) }       // stopword
+        for _ in 0..<10 { m.learn(word: "ok", previous: []) }        // too short (<3)
+        for _ in 0..<5  { m.learn(word: "Makarenko", previous: []) }
+        for _ in 0..<4  { m.learn(word: "Inkling", previous: []) }
+        for _ in 0..<2  { m.learn(word: "rareword", previous: []) }  // below min sightings (3)
+        XCTAssertEqual(m.frequentVocabulary(max: 6), ["Makarenko", "Inkling"])
+    }
 }
