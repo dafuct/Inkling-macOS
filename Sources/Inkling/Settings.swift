@@ -16,4 +16,13 @@ enum Settings {
         get { defaults.string(forKey: modelKey) }
         set { defaults.set(newValue, forKey: modelKey) }
     }
+
+    private static let learningKey = "InklingLearningEnabled"
+
+    /// Whether new typing is captured into PersonalMemory. Defaults to true.
+    /// Gates capture only — existing learned data is still used when paused.
+    static var learningEnabled: Bool {
+        get { defaults.object(forKey: learningKey) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: learningKey) }
+    }
 }

@@ -8,11 +8,14 @@ final class EventTapController {
     var onKeyDown: (() -> Void)?
     var onAccept: (() -> Void)?
     var onDismiss: (() -> Void)?
+    var onType: ((String) -> Void)?
+    var onDelete: (() -> Void)?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private let acceptKeyCode: Int64 = 0x32  // kVK_ANSI_Grave (backtick `)
     private let escKeyCode: Int64 = 0x35  // kVK_Escape
+    private let deleteKeyCode: Int64 = 0x33  // kVK_Delete (backspace)
 
     func start() -> Bool {
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
@@ -63,8 +66,33 @@ final class EventTapController {
                 if keyCode == acceptKeyCode { onAccept?(); return nil }   // swallow ` (accept)
                 if keyCode == escKeyCode { onDismiss?(); return nil }  // swallow Esc
             }
+            // Capture for personalization (skip when a shortcut modifier is held).
+            let flags = event.flags
+            let hasCmdOrCtrl = flags.contains(.maskCommand) || flags.contains(.maskControl)
+            if !hasCmdOrCtrl {
+                if keyCode == deleteKeyCode {
+                    onDelete?()
+                } else if let s = typedString(event), isCapturable(s) {
+                    onType?(s)
+                }
+            }
             onKeyDown?()
         }
         return Unmanaged.passUnretained(event)
+    }
+
+    /// The Unicode string a key event would insert (respecting modifiers/layout).
+    private func typedString(_ event: CGEvent) -> String? {
+        var length = 0
+        var chars = [UniChar](repeating: 0, count: 4)
+        event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &length, unicodeString: &chars)
+        guard length > 0 else { return nil }
+        return String(utf16CodeUnits: chars, count: length)
+    }
+
+    /// True for ordinary printable text (one or more chars, none a control char).
+    private func isCapturable(_ s: String) -> Bool {
+        guard !s.isEmpty else { return false }
+        return s.unicodeScalars.allSatisfy { !($0.value < 0x20 || $0.value == 0x7F) }
     }
 }
