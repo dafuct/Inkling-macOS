@@ -9,3 +9,8 @@ CLAUDE.md
 *.app
 /models/
 .xcbuild/
+Inkling.app
+*.dmg
+.DS_Store
+.vscode/
+*.profraw
