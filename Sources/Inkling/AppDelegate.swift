@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupMenuBar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "⌨︎"
+        item.button?.image = MenuBarIcon.image()
         statusItem = item
         rebuildMenu()
     }

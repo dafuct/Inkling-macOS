@@ -17,6 +17,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$PRODUCTS/Inkling" "$APP/Contents/MacOS/Inkling"
 cp "Resources/Info.plist" "$APP/Contents/Info.plist"
+cp "Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
 # Resource bundles (MLX metallib, tokenizer assets, …) — needed at runtime.
 cp -R "$PRODUCTS"/*.bundle "$APP/Contents/Resources/" 2>/dev/null || true
