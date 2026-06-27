@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import CoreGraphics
+import InklingCore
 
 /// What we managed to read from the currently focused text element.
 struct CaretReadout {
@@ -75,11 +76,9 @@ enum FocusContextProvider {
             }
         }
 
-        // Caret pixel bounds via the parameterized bounds-for-range attribute.
-        // Asking for the char AT the caret fails when the caret is at end-of-text
-        // (the common case while typing), so fall back to the preceding char and
-        // use its trailing edge — which is exactly where the caret sits. Bounds
-        // come back in global display coords with a top-left origin.
+        // Per-character pixel bounds via AXBoundsForRange (global display coords,
+        // top-left origin). Editors return these inconsistently, so the final
+        // caret rect is chosen by CaretGeometry below.
         func bounds(forLocation loc: Int) -> CGRect? {
             guard loc >= 0 else { return nil }
             var range = CFRange(location: loc, length: 1)
@@ -97,7 +96,27 @@ enum FocusContextProvider {
             return rect
         }
 
-        let caretBounds = bounds(forLocation: caretIndex) ?? bounds(forLocation: caretIndex - 1)
+        // WebKit-style editors (Apple Notes) return a useless zero-size rect from
+        // AXBoundsForRange but DO implement the text-marker geometry API, which
+        // gives the real caret rect. Use it when the character-range API fails.
+        func textMarkerCaretBounds() -> CGRect? {
+            var markerRange: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(
+                element, "AXSelectedTextMarkerRange" as CFString, &markerRange) == .success,
+                  let markerRange else { return nil }
+            var boundsRef: CFTypeRef?
+            guard AXUIElementCopyParameterizedAttributeValue(
+                element, "AXBoundsForTextMarkerRange" as CFString, markerRange, &boundsRef) == .success,
+                  let boundsRef, CFGetTypeID(boundsRef) == AXValueGetTypeID() else { return nil }
+            var rect = CGRect.zero
+            guard AXValueGetValue(boundsRef as! AXValue, .cgRect, &rect) else { return nil }
+            return rect.height > 0 ? rect : nil
+        }
+
+        let caretBounds = CaretGeometry.caretRect(
+            prevChar: caretIndex > 0 ? bounds(forLocation: caretIndex - 1) : nil,
+            atCaret: bounds(forLocation: caretIndex),
+            marker: textMarkerCaretBounds())
 
         // The font of the text near the caret, so the ghost text matches exactly.
         func font(forLocation loc: Int) -> NSFont? {
