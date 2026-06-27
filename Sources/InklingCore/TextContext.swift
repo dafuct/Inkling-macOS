@@ -17,6 +17,17 @@ public struct TextContext: Equatable {
         return String(fullText[fullText.startIndex..<strEnd])
     }
 
+    /// True if the caret sits at the end of its line — nothing follows, or the
+    /// next character is a line break. Inline ghost text drawn at the caret would
+    /// overlap any following text, so suggestions should only appear here.
+    public var isAtLineEnd: Bool {
+        let u16 = fullText.utf16
+        let end = u16.index(u16.startIndex, offsetBy: caretIndex, limitedBy: u16.endIndex) ?? u16.endIndex
+        guard let strEnd = end.samePosition(in: fullText), strEnd < fullText.endIndex else { return true }
+        let next = fullText[strEnd]
+        return next == "\n" || next == "\r"
+    }
+
     /// The partial word (letters/digits) immediately before the caret, or "".
     public var currentWord: String {
         var chars: [Character] = []

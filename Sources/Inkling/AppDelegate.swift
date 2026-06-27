@@ -174,7 +174,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let readout = FocusContextProvider.currentReadout(),
               let bounds = readout.caretBounds else { return false }
         let ctx = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
-        guard ctx.currentWord == recorder.currentWord else { return false }
+        // Only at line end: ghost text mid-line would overlap the following text.
+        guard ctx.currentWord == recorder.currentWord, ctx.isAtLineEnd else { return false }
 
         suggestionSource = .memory
         currentSuggestion = suffix
@@ -207,6 +208,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !context.prefix.hasSuffix(recorder.currentWord) || recorder.currentWord.isEmpty && !context.currentWord.isEmpty {
             recorder.reset()
         }
+        // Only suggest at line end; mid-line ghost text would overlap what follows.
+        guard context.isAtLineEnd else { dismiss(); return }
         let font = readout.font
         let hint = memory.frequentVocabulary(max: 6).joined(separator: ", ")
         suggestionTask?.cancel()
