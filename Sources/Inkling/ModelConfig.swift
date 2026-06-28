@@ -1,4 +1,5 @@
 import Foundation
+import InklingCore
 
 /// Chosen local model + generation settings + prompt for the real engine.
 enum ModelConfig {
@@ -30,8 +31,16 @@ enum ModelConfig {
     /// Absolute path to the selected model directory.
     static var modelDirectory: URL { directory(for: currentModelName) }
 
-    static let maxTokens = 12
+    // Backstop on generation length. Confidence gating is the real stopper now,
+    // so this is a safety ceiling, not the typical suggestion length.
+    static let maxTokens = 24
     static let promptMaxChars = 400
+
+    /// Confidence gates for the LLM path. Starting values — tune with InklingBench
+    /// (see docs/superpowers/plans). Higher firstTokenMinProb => fewer, surer
+    /// suggestions.
+    static let confidenceThresholds = ConfidenceThresholds(
+        firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5)
 
     /// Role instruction: behave as a completion engine, not a chat assistant.
     static let baseSystemInstruction =
