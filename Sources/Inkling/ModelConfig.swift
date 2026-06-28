@@ -37,11 +37,21 @@ enum ModelConfig {
     static let promptMaxChars = 400
 
     /// Confidence gates for the LLM path. Tuned on Qwen2.5-3B-Instruct via
-    /// InklingBench (Scripts/run-bench.sh): firstTokenMinProb sits in the 0.52–0.61
-    /// gap between ambiguous and clearly-dominant first tokens; dominance does most
-    /// of the quality gating. Higher firstTokenMinProb => fewer, surer suggestions.
+    /// InklingBench (Scripts/run-bench.sh), INCLUDING adversarial repetition cases:
+    /// a degenerate loop's first token (~0.60) is indistinguishable from a genuine
+    /// continuation's, so the floor sits at 0.65 to stay silent on garbage. The
+    /// repetition penalty (below) handles loops; this floor keeps lone low-value
+    /// words out. Higher firstTokenMinProb => fewer, surer suggestions.
     static let confidenceThresholds = ConfidenceThresholds(
-        firstTokenMinProb: 0.58, minProb: 0.45, dominance: 1.5)
+        firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5)
+
+    /// Repetition penalty for decoding. Greedy decoding loops on odd/repetitive
+    /// input by echoing the prefix — and those echoed tokens are HIGH-confidence,
+    /// so the gate can't stop them. The penalty down-weights tokens already in the
+    /// recent context (window = repetitionContextSize), breaking the loop at the
+    /// source. 1.0 disables it.
+    static let repetitionPenalty: Float = 1.3
+    static let repetitionContextSize = 40
 
     /// Role instruction: behave as a completion engine, not a chat assistant.
     static let baseSystemInstruction =

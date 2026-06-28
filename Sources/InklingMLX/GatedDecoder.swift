@@ -38,7 +38,9 @@ public enum GatedDecoder {
         userMessage: String,
         thresholds: ConfidenceThresholds,
         maxTokens: Int,
-        stopEarly: Bool
+        stopEarly: Bool,
+        repetitionPenalty: Float,
+        repetitionContextSize: Int
     ) async throws -> GatedDecodeResult {
         try await container.perform { ctx in
             let input = UserInput(chat: [
@@ -47,9 +49,17 @@ public enum GatedDecoder {
             ])
             let lmInput = try await ctx.processor.prepare(input: input)
 
-            let recorder = ConfidenceLogitProcessor()
             var params = GenerateParameters()
             params.temperature = 0                     // greedy -> ArgMaxSampler
+            if repetitionPenalty > 1 {
+                params.repetitionPenalty = repetitionPenalty
+                params.repetitionContextSize = repetitionContextSize
+            }
+            // Penalty processor down-weights tokens already in the recent context
+            // (incl. the prompt), composed into the recorder so the gate sees the
+            // penalized distribution. This is what stops prefix-echo / loop output
+            // that confidence gating alone can't catch (loop tokens are confident).
+            let recorder = ConfidenceLogitProcessor(inner: params.processor())
             let sampler = params.sampler()
 
             var iterator = try TokenIterator(

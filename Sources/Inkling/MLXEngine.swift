@@ -45,7 +45,9 @@ actor MLXEngine: SuggestionEngine {
                 userMessage: ModelConfig.userMessage(for: promptText),
                 thresholds: ModelConfig.confidenceThresholds,
                 maxTokens: ModelConfig.maxTokens,
-                stopEarly: true)
+                stopEarly: true,
+                repetitionPenalty: ModelConfig.repetitionPenalty,
+                repetitionContextSize: ModelConfig.repetitionContextSize)
             if Task.isCancelled { return "" }
             let cleaned = CompletionPrompt.clean(result.text)
             let endsWithSpace = promptText.last.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? true
