@@ -14,6 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let recorder = MemoryRecorder()
     private enum SuggestionSource { case none, memory, llm }
     private var suggestionSource: SuggestionSource = .none
+    /// True when the currently-shown memory suggestion was an exact word-repeat
+    /// (trusted over the LLM). Meaningful only while `suggestionSource == .memory`.
+    private var memoryExactRepeat = false
+    /// True while the user is accepting the current suggestion word-by-word; the
+    /// LLM result must not swap the ghost text out from under them.
+    private var accepting = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -153,7 +159,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.dismiss()
             guard Settings.enabled else { return }
-            if self.tryMemorySuggestion() { return }   // shown instantly; LLM not needed
+            // Tier 1: show an instant memory suggestion if we have one — but do
+            // NOT return. Tier 2 (the LLM) still runs and may upgrade it.
+            _ = self.tryMemorySuggestion()
             self.debouncer.schedule { [weak self] in self?.refreshSuggestion() }
         }
     }
@@ -162,11 +170,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// true (and shows ghost text) when memory is confident AND the live field
     /// agrees with the buffer; false otherwise.
     private func tryMemorySuggestion() -> Bool {
-        guard let suffix = MemoryEngine.completion(
+        guard let hit = MemoryEngine.hit(
             currentWord: recorder.currentWord,
             precedingWords: recorder.recentWords,
             memory: memory
-        ), !suffix.isEmpty else { return false }
+        ), !hit.text.isEmpty else { return false }
+        let suffix = hit.text
 
         // Validate against the real field so a desynced buffer can't show a wrong
         // completion (this AX read happens only on a memory hit). currentReadout()
@@ -184,6 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         suggestionSource = .memory
+        memoryExactRepeat = hit.isExactRepeat
         currentSuggestion = suffix
         overlay.show(text: suffix, caretBounds: bounds, font: readout.font)
         eventTap.suggestionVisible = true
@@ -197,17 +207,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         eventTap.suggestionVisible = false
         currentSuggestion = ""
         suggestionSource = .none
+        memoryExactRepeat = false
+        accepting = false
     }
 
     private func refreshSuggestion() {
         guard let readout = FocusContextProvider.currentReadout() else {
             NSLog("Inkling: AX readout = nil")
-            dismiss()
+            if suggestionSource != .memory { dismiss() }
             return
         }
         guard let bounds = readout.caretBounds else {
             NSLog("Inkling: caretBounds = nil (caret=\(readout.caretIndex))")
-            dismiss()
+            if suggestionSource != .memory { dismiss() }
             return
         }
         let context = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
@@ -215,12 +227,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             recorder.reset()
         }
         // Only suggest at line end; mid-line ghost text would overlap what follows.
-        guard context.isAtLineEnd else { dismiss(); return }
+        guard context.isAtLineEnd else {
+            if suggestionSource != .memory { dismiss() }
+            return
+        }
         let font = readout.font
-        // NOTE: we deliberately do NOT inject a "frequently used words" hint into
-        // the LLM prompt. It made the model regurgitate those words — typing "fo"
-        // produced "main" / "app" instead of completing the text. Personalization
-        // for high-confidence repeats is handled by the deterministic MemoryEngine.
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
@@ -228,13 +239,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in
                 guard let self else { return }
-                guard self.suggestionSource != .memory else { return }   // memory wins
-                guard !suggestion.isEmpty else { self.dismiss(); return }
-                self.suggestionSource = .llm
-                self.currentSuggestion = suggestion
-                self.overlay.show(text: suggestion, caretBounds: bounds, font: font)
-                self.eventTap.suggestionVisible = true
-                NSLog("Inkling: showing \"\(suggestion)\"")
+                let shown: ShownSuggestion
+                switch self.suggestionSource {
+                case .none: shown = .none
+                case .memory: shown = .memory(exactRepeat: self.memoryExactRepeat)
+                case .llm: shown = .llm
+                }
+                switch SuggestionArbiter.decide(
+                    shown: shown, visibleText: self.currentSuggestion,
+                    llmSuggestion: suggestion, accepting: self.accepting
+                ) {
+                case .keep:
+                    return
+                case .dismiss:
+                    self.dismiss()
+                case .replaceWithLLM:
+                    self.suggestionSource = .llm
+                    self.memoryExactRepeat = false
+                    self.currentSuggestion = suggestion
+                    self.overlay.show(text: suggestion, caretBounds: bounds, font: font)
+                    self.eventTap.suggestionVisible = true
+                    NSLog("Inkling: showing \"\(suggestion)\"")
+                }
             }
         }
     }
@@ -244,6 +270,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// re-query and change the completion. Our inserted keystrokes are tagged and
     /// ignored by the event tap, so they don't trigger a fresh query.
     private func acceptNextWord() {
+        accepting = true
         let split = SuggestionSplitter.nextChunk(of: currentSuggestion)
         guard !split.chunk.isEmpty else { dismiss(); return }
         overlay.hide()
