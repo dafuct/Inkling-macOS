@@ -1,12 +1,14 @@
 import Foundation
 import InklingCore
+import InklingMLX
 import MLXLLM
 import MLXLMCommon
 import MLXHuggingFace
 import Tokenizers
 
 /// SuggestionEngine backed by a local MLX instruct model, steered to continue
-/// text via a system instruction. Loads the model lazily and keeps it warm.
+/// text and confidence-gated so only sure continuations surface. Loads the model
+/// lazily and keeps it warm.
 actor MLXEngine: SuggestionEngine {
     private let modelDirectory: URL
     private var container: ModelContainer?
@@ -37,23 +39,15 @@ actor MLXEngine: SuggestionEngine {
         guard promptText.count >= 2 else { return "" }
         do {
             let container = try await loadedContainer()
-            let input = UserInput(chat: [
-                .system(ModelConfig.systemInstruction(personalization: personalization)),
-                .user(ModelConfig.userMessage(for: promptText)),
-            ])
-            let lmInput = try await container.prepare(input: input)
-            var params = GenerateParameters()
-            params.maxTokens = ModelConfig.maxTokens
-            params.temperature = 0
-
-            var raw = ""
-            let stream = try await container.generate(input: lmInput, parameters: params)
-            for await generation in stream {
-                if Task.isCancelled { break }
-                if case .chunk(let text) = generation { raw += text }
-            }
-
-            let cleaned = CompletionPrompt.clean(raw)
+            let result = try await GatedDecoder.decode(
+                container: container,
+                systemInstruction: ModelConfig.systemInstruction(personalization: personalization),
+                userMessage: ModelConfig.userMessage(for: promptText),
+                thresholds: ModelConfig.confidenceThresholds,
+                maxTokens: ModelConfig.maxTokens,
+                stopEarly: true)
+            if Task.isCancelled { return "" }
+            let cleaned = CompletionPrompt.clean(result.text)
             let endsWithSpace = promptText.last.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? true
             return CompletionPrompt.inlineSuggestion(
                 continuation: cleaned, currentWord: context.currentWord,
