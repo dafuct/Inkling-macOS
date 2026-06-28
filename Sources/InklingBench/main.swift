@@ -6,13 +6,28 @@ import MLXLMCommon
 import MLXHuggingFace
 import Tokenizers
 
-// Usage: InklingBench <model-directory>
-// Dumps per-token confidence for a domain-spread prompt suite and sweeps gate
-// thresholds, so we can pick defaults from real output.
+// Usage:
+//   InklingBench <model-directory>          tune gate thresholds for one model
+//   InklingBench compare [model-dir …]      compare models on the tech-conversation
+//                                           suite (defaults to all under models/)
+// The single-model mode dumps per-token confidence + sweeps gate thresholds.
 guard CommandLine.arguments.count >= 2 else {
     print("usage: InklingBench <model-directory>")
+    print("       InklingBench compare [model-dir …]")
     exit(1)
 }
+
+if CommandLine.arguments[1] == "compare" {
+    let explicit = CommandLine.arguments.dropFirst(2).map { URL(filePath: $0) }
+    let dirs = explicit.isEmpty ? TechConversationSuite.defaultModelDirs() : Array(explicit)
+    guard !dirs.isEmpty else {
+        print("compare: no models given and none found under models/")
+        exit(1)
+    }
+    try await runComparison(modelDirs: dirs)
+    exit(0)
+}
+
 let modelDir = URL(filePath: CommandLine.arguments[1])
 
 // Mirrors the app's steering. Kept local to the harness on purpose: the bench

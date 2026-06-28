@@ -1,4 +1,5 @@
 import Foundation
+import MLX
 import MLXLLM
 import MLXLMCommon
 import MLXHuggingFace
@@ -32,6 +33,11 @@ public enum GatedDecoder {
     ///   fails the gate — minimal latency on the common silent path). false for
     ///   the harness (generate the full `maxTokens` so rejected tail tokens are
     ///   visible for tuning).
+    /// - `rawPrompt`: when set, the model is fed this plain text directly
+    ///   (tokenized with no chat template) and `systemInstruction`/`userMessage`
+    ///   are ignored. Use it for BASE (non-instruct) models, which do pure
+    ///   continuation and have no chat template — the harness compares them
+    ///   against instruct models this way. nil = the normal instruct chat path.
     public static func decode(
         container: ModelContainer,
         systemInstruction: String,
@@ -40,14 +46,23 @@ public enum GatedDecoder {
         maxTokens: Int,
         stopEarly: Bool,
         repetitionPenalty: Float,
-        repetitionContextSize: Int
+        repetitionContextSize: Int,
+        rawPrompt: String? = nil
     ) async throws -> GatedDecodeResult {
         try await container.perform { ctx in
-            let input = UserInput(chat: [
-                .system(systemInstruction),
-                .user(userMessage),
-            ])
-            let lmInput = try await ctx.processor.prepare(input: input)
+            let lmInput: LMInput
+            if let rawPrompt {
+                // Base model: tokenize the text as-is and continue it. BOS is
+                // added (addSpecialTokens default), matching a real sequence start.
+                let ids = ctx.tokenizer.encode(text: rawPrompt)
+                lmInput = LMInput(tokens: MLXArray(ids))
+            } else {
+                let input = UserInput(chat: [
+                    .system(systemInstruction),
+                    .user(userMessage),
+                ])
+                lmInput = try await ctx.processor.prepare(input: input)
+            }
 
             var params = GenerateParameters()
             params.temperature = 0                     // greedy -> ArgMaxSampler
