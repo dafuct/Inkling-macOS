@@ -49,11 +49,14 @@ actor MLXEngine: SuggestionEngine {
                 repetitionPenalty: ModelConfig.repetitionPenalty,
                 repetitionContextSize: ModelConfig.repetitionContextSize)
             if Task.isCancelled { return "" }
+            // The model's own signal that it meant a NEW word: raw output begins
+            // with whitespace. Capture before clean() trims it.
+            let startsNewWord = result.text.first.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? false
             let cleaned = CompletionPrompt.clean(result.text)
             let endsWithSpace = promptText.last.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? true
             return CompletionPrompt.inlineSuggestion(
                 continuation: cleaned, currentWord: context.currentWord,
-                prefixEndsWithSpace: endsWithSpace)
+                prefixEndsWithSpace: endsWithSpace, startsNewWord: startsNewWord)
         } catch {
             NSLog("Inkling: MLXEngine error: \(error)")
             return ""

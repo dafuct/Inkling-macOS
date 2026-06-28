@@ -27,27 +27,38 @@ public enum CompletionPrompt {
     /// continuation, the partial word under the caret, and whether the prefix
     /// ends with whitespace.
     ///
+    /// `startsNewWord` is whether the model's RAW output began with whitespace —
+    /// the model's own signal that it meant a new word rather than finishing the
+    /// current one. (Pass it before `clean` strips the leading space.)
+    ///
     /// Cases handled:
     /// - The model restates the word being typed (caret after "h", model says
     ///   "how are you") → insert only the new part ("ow are you").
-    /// - The caret is in/after a word (no trailing space) → the continuation
-    ///   completes it; inserted with no leading space (so "a"+"pproach"="approach",
-    ///   never "a pproach"). Trade-off: a complete word followed by a paused new
-    ///   word can glue, which self-corrects once a space is typed.
+    /// - Mid-word, but the model started a NEW word (typed "fo", model said
+    ///   " main") → illogical, suppress. This stops frequent-word/garbage output
+    ///   from being glued onto the partial word ("fo"+"main"="fomain").
+    /// - The caret is in/after a word and the model continued it (no leading
+    ///   space) → the continuation completes it; inserted with no leading space
+    ///   (so "a"+"pproach"="approach", never "a pproach").
     /// - After whitespace → a new word; inserted as-is.
     public static func inlineSuggestion(
         continuation: String,
         currentWord: String,
-        prefixEndsWithSpace: Bool
+        prefixEndsWithSpace: Bool,
+        startsNewWord: Bool
     ) -> String {
         guard !continuation.isEmpty else { return "" }
-        if !currentWord.isEmpty,
-            continuation.lowercased().hasPrefix(currentWord.lowercased()) {
-            return String(continuation.dropFirst(currentWord.count))
+        if !currentWord.isEmpty {
+            // Model restated the whole word -> insert only the missing suffix.
+            if continuation.lowercased().hasPrefix(currentWord.lowercased()) {
+                return String(continuation.dropFirst(currentWord.count))
+            }
+            // Mid-word, but the model began a new word -> it ignored the partial
+            // word; gluing it on would be nonsense. Show nothing.
+            if startsNewWord { return "" }
+            // Otherwise it's the suffix that finishes the current word.
+            return continuation
         }
-        if currentWord.isEmpty {
-            return prefixEndsWithSpace ? continuation : " " + continuation
-        }
-        return continuation
+        return prefixEndsWithSpace ? continuation : " " + continuation
     }
 }

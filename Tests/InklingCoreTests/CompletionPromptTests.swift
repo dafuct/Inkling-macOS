@@ -28,7 +28,18 @@ final class CompletionPromptTests: XCTestCase {
         // caret after "h", model restates "how are you" -> insert "ow are you"
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "how are you", currentWord: "h", prefixEndsWithSpace: false),
+                continuation: "how are you", currentWord: "h", prefixEndsWithSpace: false,
+                startsNewWord: false),
+            "ow are you")
+    }
+
+    func test_inline_restateWithLeadingSpace_stillStrips() {
+        // even if the model began with a space, a restated word is stripped (the
+        // restate check wins over the new-word guard).
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(
+                continuation: "how are you", currentWord: "h", prefixEndsWithSpace: false,
+                startsNewWord: true),
             "ow are you")
     }
 
@@ -36,35 +47,50 @@ final class CompletionPromptTests: XCTestCase {
         // caret after "a" typing "approach" -> "pproach", never "a pproach"
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "pproach", currentWord: "a", prefixEndsWithSpace: false),
+                continuation: "pproach", currentWord: "a", prefixEndsWithSpace: false,
+                startsNewWord: false),
             "pproach")
     }
 
     func test_inline_midWordCompletesNoSpace() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "p me", currentWord: "hel", prefixEndsWithSpace: false),
+                continuation: "p me", currentWord: "hel", prefixEndsWithSpace: false,
+                startsNewWord: false),
             "p me")
+    }
+
+    func test_inline_midWordNewWord_suppressed() {
+        // typed "fo", model started a NEW word ("main") -> illogical, show nothing
+        // (never glue "fo" + "main" = "fomain").
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(
+                continuation: "main", currentWord: "fo", prefixEndsWithSpace: false,
+                startsNewWord: true),
+            "")
     }
 
     func test_inline_newWordAfterSpace() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "library", currentWord: "", prefixEndsWithSpace: true),
+                continuation: "library", currentWord: "", prefixEndsWithSpace: true,
+                startsNewWord: true),
             "library")
     }
 
     func test_inline_newWordAfterPunctuationGetsSpace() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "and then", currentWord: "", prefixEndsWithSpace: false),
+                continuation: "and then", currentWord: "", prefixEndsWithSpace: false,
+                startsNewWord: true),
             " and then")
     }
 
     func test_inline_emptyStaysEmpty() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "", currentWord: "x", prefixEndsWithSpace: false),
+                continuation: "", currentWord: "x", prefixEndsWithSpace: false,
+                startsNewWord: false),
             "")
     }
 }

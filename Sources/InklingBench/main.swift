@@ -53,6 +53,7 @@ let prompts = [
     "honestly idk maybe we",
     "Look at this Look Look at this Look Look",   // prefix-echo loop trigger
     "the the the the the",                        // degenerate repetition
+    "Look at this fo",                            // partial-word completion (fo -> fox/folder)
 ]
 
 // Decoding penalty — keep in sync with Inkling's ModelConfig.
