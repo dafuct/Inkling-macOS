@@ -46,4 +46,22 @@ final class ConfidenceGateTests: XCTestCase {
         XCTAssertEqual(r.top1, 0.9, accuracy: 1e-6)
         XCTAssertEqual(r.top2, 0.0, accuracy: 1e-6)
     }
+
+    func test_subsequentToken_usesLowerFloor() {
+        // 0.55 is below firstTokenMinProb (0.65) but above minProb (0.45):
+        // rejected as the first token, accepted as a later token.
+        XCTAssertFalse(ConfidenceGate.accepts(top1: 0.55, top2: 0.0, isFirst: true,  thresholds: t))
+        XCTAssertTrue( ConfidenceGate.accepts(top1: 0.55, top2: 0.0, isFirst: false, thresholds: t))
+    }
+
+    func test_tiedTopTwo_failsDominance() {
+        // top1 == top2 -> ratio 1.0 < dominance (1.5) -> rejected (coin-flip)
+        XCTAssertFalse(ConfidenceGate.accepts(top1: 0.7, top2: 0.7, isFirst: false, thresholds: t))
+    }
+
+    func test_top2_empty_returnsZeroZero() {
+        let r = ConfidenceGate.top2(of: [])
+        XCTAssertEqual(r.top1, 0.0, accuracy: 1e-6)
+        XCTAssertEqual(r.top2, 0.0, accuracy: 1e-6)
+    }
 }
