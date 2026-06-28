@@ -212,6 +212,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func refreshSuggestion() {
+        // An instant memory suggestion (Tier 1) may already be on screen; the LLM
+        // (Tier 2) refines it. On a transient AX-read failure or non-line-end, KEEP
+        // a shown memory suggestion (it was AX-validated when shown) rather than
+        // hiding it — the next keystroke dismisses it. Trade-off: a focus switch
+        // within the debounce window can briefly leave it over the new app.
         guard let readout = FocusContextProvider.currentReadout() else {
             NSLog("Inkling: AX readout = nil")
             if suggestionSource != .memory { dismiss() }
@@ -235,6 +240,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
+            // Personalization is deterministic (the memory tier above), NOT a
+            // frequent-vocab hint injected into the LLM prompt — that made the
+            // model regurgitate those words instead of continuing (commit a8e524e).
             let suggestion = await engine.suggestion(for: context)
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in
@@ -280,6 +288,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("Inkling: accepted \"\(split.chunk)\"")
 
         let remainder = split.remainder
+        // Last word accepted. Intentionally leave `accepting` set: a late LLM
+        // result from the pre-accept debounce must not paint over the finished
+        // line. The next real keystroke calls dismiss(), which clears the lock.
         guard !remainder.isEmpty else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             guard let self else { return }

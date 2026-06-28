@@ -19,7 +19,7 @@ func runEagerSweep(modelDir: URL) async throws {
     let adversarialIdx = Set((prompts.count - TechConversationSuite.adversarialCount ..< prompts.count))
 
     let ladder: [ConfidenceThresholds] = [
-        .init(firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5),   // today
+        .init(firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5),   // previous (pre-eager) default
         .init(firstTokenMinProb: 0.40, minProb: 0.30, dominance: 1.5),
         .init(firstTokenMinProb: 0.25, minProb: 0.20, dominance: 1.5),
         .init(firstTokenMinProb: 0.15, minProb: 0.12, dominance: 1.5),

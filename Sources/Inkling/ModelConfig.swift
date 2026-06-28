@@ -42,7 +42,7 @@ enum ModelConfig {
     /// Eager gate (Cotypist-style: almost always show the model's best guess).
     /// firstTokenMinProb/minProb are LOW so suggestions surface on nearly every
     /// pause; `dominance` (1.5) + the repetition penalty below remain the GARBAGE
-    /// FLOOR — coin-flip and prefix-echo/loop output flattens the distribution so
+    /// FLOOR — coin-flip and prefix-echo/loop output flatten the distribution so
     /// no token dominates, and dominance rejects it. These are the documented
     /// default values; refine them with `InklingBench sweep` (eager-gate sweep on
     /// the technical-conversation suite) once the Metal toolchain is available.
