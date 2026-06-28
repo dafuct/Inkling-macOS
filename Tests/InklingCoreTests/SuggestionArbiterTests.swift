@@ -51,6 +51,14 @@ final class SuggestionArbiterTests: XCTestCase {
             .replaceWithLLM)
     }
 
+    func test_differentLLM_upgradesAShownLLM() {
+        // A later LLM result that differs from the one already shown replaces it.
+        XCTAssertEqual(
+            SuggestionArbiter.decide(shown: .llm, visibleText: "thread.",
+                                     llmSuggestion: "queue.", accepting: false),
+            .replaceWithLLM)
+    }
+
     func test_emptyLLM_dismissesWhenLLMShown() {
         XCTAssertEqual(
             SuggestionArbiter.decide(shown: .llm, visibleText: "thread.",

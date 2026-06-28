@@ -16,8 +16,9 @@ import Tokenizers
 /// at the app's thresholds. Base models go through the raw-completion path;
 /// instruct models through the chat path — same prompts, fair comparison.
 func runComparison(modelDirs: [URL]) async throws {
-    // Mirror the app's decode settings so the comparison reflects shipped behavior.
-    let thresholds = ConfidenceThresholds(firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5)
+    // Mirror the app's eager decode settings so the comparison reflects shipped
+    // behavior (kept in sync with Inkling's ModelConfig.confidenceThresholds).
+    let thresholds = ConfidenceThresholds(firstTokenMinProb: 0.10, minProb: 0.10, dominance: 1.5)
     let repetitionPenalty: Float = 1.3
     let repetitionContextSize = 40
     let maxTokens = 24
