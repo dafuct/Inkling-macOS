@@ -21,7 +21,7 @@ enum ModelConfig {
         return URL(filePath: "/Users/makar/dev/own-cotypist/models")
     }()
     /// Fallback model when none is selected (best quality).
-    static let defaultModelName = "gemma-4-e4b-it-4bit"
+    static let defaultModelName = "Qwen2.5-3B-Instruct-4bit"
 
     static func directory(for name: String) -> URL {
         modelsRoot.appendingPathComponent(name)
