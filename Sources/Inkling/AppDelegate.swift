@@ -174,14 +174,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let readout = FocusContextProvider.currentReadout(),
               let bounds = readout.caretBounds else { return false }
         let ctx = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
-        // Only at line end: ghost text mid-line would overlap the following text.
-        guard ctx.currentWord == recorder.currentWord, ctx.isAtLineEnd else { return false }
+        // The tap is AHEAD of the AX value (it sees keys before the app inserts
+        // them), so require consistency, not exact equality — else word completion
+        // never fires. Only at line end: mid-line ghost text would overlap.
+        guard SuggestionSync.consistent(recorded: recorder.currentWord, live: ctx.currentWord),
+              ctx.isAtLineEnd else {
+            NSLog("Inkling: memory skip rec=\"\(recorder.currentWord)\" ax=\"\(ctx.currentWord)\" lineEnd=\(ctx.isAtLineEnd)")
+            return false
+        }
 
         suggestionSource = .memory
         currentSuggestion = suffix
         overlay.show(text: suffix, caretBounds: bounds, font: readout.font)
         eventTap.suggestionVisible = true
-        NSLog("Inkling: memory \"\(suffix)\"")
+        NSLog("Inkling: memory \"\(suffix)\" for \"\(recorder.currentWord)\"")
         return true
     }
 
