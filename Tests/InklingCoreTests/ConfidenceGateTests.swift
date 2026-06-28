@@ -64,4 +64,13 @@ final class ConfidenceGateTests: XCTestCase {
         XCTAssertEqual(r.top1, 0.0, accuracy: 1e-6)
         XCTAssertEqual(r.top2, 0.0, accuracy: 1e-6)
     }
+
+    func test_eagerFloor_stillSilencesCoinFlipViaDominance() {
+        let eager = ConfidenceThresholds(firstTokenMinProb: 0.10, minProb: 0.10, dominance: 1.5)
+        // Coin-flip / post-repetition-penalty loop signature: clears the low floor
+        // but fails dominance (0.30 < 1.5 * 0.28) -> rejected. Dominance is the floor.
+        XCTAssertFalse(ConfidenceGate.accepts(top1: 0.30, top2: 0.28, isFirst: true, thresholds: eager))
+        // A dominant low-probability best guess is now SHOWN (eager).
+        XCTAssertTrue(ConfidenceGate.accepts(top1: 0.30, top2: 0.05, isFirst: true, thresholds: eager))
+    }
 }
