@@ -64,6 +64,10 @@ enum TechConversationSuite {
         "Look at this Look Look at this Look Look",
     ]
 
+    /// The last `adversarialCount` prompts are the adversarial loop cases
+    /// (degenerate repetition + prefix-echo) — they must stay silent at any gate.
+    static let adversarialCount = 2
+
     /// A model is "instruct" if its directory name carries an instruct/chat tag
     /// (`Instruct`, or an `it` segment as in `gemma-...-it-4bit`). Everything else
     /// is treated as a base model and fed `rawPrompt`.

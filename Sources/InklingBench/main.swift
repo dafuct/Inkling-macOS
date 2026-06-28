@@ -10,10 +10,12 @@ import Tokenizers
 //   InklingBench <model-directory>          tune gate thresholds for one model
 //   InklingBench compare [model-dir …]      compare models on the tech-conversation
 //                                           suite (defaults to all under models/)
+//   InklingBench sweep [model-dir]          eager-gate threshold sweep on the tech suite
 // The single-model mode dumps per-token confidence + sweeps gate thresholds.
 guard CommandLine.arguments.count >= 2 else {
     print("usage: InklingBench <model-directory>")
     print("       InklingBench compare [model-dir …]")
+    print("       InklingBench sweep [model-dir]")
     exit(1)
 }
 
@@ -25,6 +27,14 @@ if CommandLine.arguments[1] == "compare" {
         exit(1)
     }
     try await runComparison(modelDirs: dirs)
+    exit(0)
+}
+
+if CommandLine.arguments[1] == "sweep" {
+    let dir = CommandLine.arguments.count > 2
+        ? URL(filePath: CommandLine.arguments[2])
+        : URL(filePath: "models/Qwen2.5-3B-Instruct-4bit")
+    try await runEagerSweep(modelDir: dir)
     exit(0)
 }
 
