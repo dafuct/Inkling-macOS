@@ -1,9 +1,7 @@
 import Foundation
-import MLX
 import MLXLLM
 import MLXLMCommon
 import MLXHuggingFace
-import Tokenizers
 import InklingCore
 
 /// One generated token plus its decoded text and confidence. Used by the eval
