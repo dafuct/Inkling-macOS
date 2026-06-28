@@ -1,3 +1,16 @@
+/// A confident memory completion plus whether it is an *exact repeat*
+/// (completing a word the user is typing from a known word) rather than a
+/// speculative next-word prediction. The tiered UI trusts exact repeats over
+/// the LLM; speculative predictions get upgraded by the LLM.
+public struct MemoryHit: Equatable, Sendable {
+    public let text: String
+    public let isExactRepeat: Bool
+    public init(text: String, isExactRepeat: Bool) {
+        self.text = text
+        self.isExactRepeat = isExactRepeat
+    }
+}
+
 /// Confidence-gated deterministic completion from a PersonalMemory. Pure.
 public enum MemoryEngine {
     public struct Gates {
@@ -15,18 +28,35 @@ public enum MemoryEngine {
     }
 
     /// The inline text to show after the caret, or nil if nothing is confident.
-    /// With a non-empty `currentWord`, completes that word; otherwise predicts
-    /// the next word(s) from `precedingWords` (joined with spaces).
+    /// Thin wrapper over `hit` for callers that don't need the exact-repeat flag.
     public static func completion(
         currentWord: String,
         precedingWords: [String],
         memory: PersonalMemory,
         gates: Gates = Gates()
     ) -> String? {
+        hit(currentWord: currentWord, precedingWords: precedingWords,
+            memory: memory, gates: gates)?.text
+    }
+
+    /// Like `completion`, but reports whether the hit is an exact word-completion
+    /// (`isExactRepeat == true`) or a speculative next-word chain (`false`).
+    /// With a non-empty `currentWord`, completes that word (exact repeat);
+    /// otherwise predicts the next word(s) from `precedingWords` (speculative).
+    public static func hit(
+        currentWord: String,
+        precedingWords: [String],
+        memory: PersonalMemory,
+        gates: Gates = Gates()
+    ) -> MemoryHit? {
         if currentWord.isEmpty {
-            return nextWords(precedingWords: precedingWords, memory: memory, gates: gates)
+            guard let text = nextWords(precedingWords: precedingWords, memory: memory, gates: gates)
+            else { return nil }
+            return MemoryHit(text: text, isExactRepeat: false)
         }
-        return wordCompletion(currentWord: currentWord, memory: memory, gates: gates)
+        guard let text = wordCompletion(currentWord: currentWord, memory: memory, gates: gates)
+        else { return nil }
+        return MemoryHit(text: text, isExactRepeat: true)
     }
 
     private static func wordCompletion(currentWord: String, memory: PersonalMemory, gates: Gates) -> String? {

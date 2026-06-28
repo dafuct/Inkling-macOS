@@ -50,4 +50,23 @@ final class MemoryEngineTests: XCTestCase {
         let m = memory(word: "Dmytro", times: 5)
         XCTAssertNil(MemoryEngine.completion(currentWord: "", precedingWords: [], memory: m))
     }
+
+    func test_hit_wordCompletion_isExactRepeat() {
+        let m = memory(word: "Makarenko", times: 3)
+        let h = MemoryEngine.hit(currentWord: "Mak", precedingWords: [], memory: m)
+        XCTAssertEqual(h, MemoryHit(text: "arenko", isExactRepeat: true))
+    }
+
+    func test_hit_nextWordPrediction_isNotExactRepeat() {
+        let m = PersonalMemory()
+        for _ in 0..<3 { m.learn(word: "Dmytro", previous: ["regards"]) }
+        for _ in 0..<3 { m.learn(word: "Makarenko", previous: ["regards", "Dmytro"]) }
+        let h = MemoryEngine.hit(currentWord: "", precedingWords: ["regards"], memory: m)
+        XCTAssertEqual(h, MemoryHit(text: "Dmytro Makarenko", isExactRepeat: false))
+    }
+
+    func test_hit_silentWhenNoConfidentCompletion() {
+        let m = memory(word: "Makarenko", times: 2)   // < minSightings (3)
+        XCTAssertNil(MemoryEngine.hit(currentWord: "Mak", precedingWords: [], memory: m))
+    }
 }
