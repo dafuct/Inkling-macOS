@@ -35,6 +35,9 @@ enum ModelConfig {
     // so this is a safety ceiling, not the typical suggestion length.
     static let maxTokens = 24
     static let promptMaxChars = 400
+    /// Idle time after the last keystroke before querying the LLM. Low for a
+    /// snappy, eager feel — the suggestion chases the cursor instead of lagging.
+    static let suggestionDebounceSeconds: Double = 0.09
 
     /// Eager gate (Cotypist-style: almost always show the model's best guess).
     /// firstTokenMinProb/minProb are LOW so suggestions surface on nearly every

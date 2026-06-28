@@ -5,7 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTap = EventTapController()
     private let overlay = OverlayWindow()
     private var engine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
-    private let debouncer = Debouncer(delay: 0.2)
+    private let debouncer = Debouncer(delay: ModelConfig.suggestionDebounceSeconds)
     private var statusItem: NSStatusItem?
     private var currentSuggestion = ""
     private var suggestionTask: Task<Void, Never>?
