@@ -16,6 +16,8 @@ final class ConfidenceLogitProcessor: LogitProcessor {
     func prompt(_ prompt: MLXArray) {}
 
     func process(logits: MLXArray) -> MLXArray {
+        assert(logits.shape.count == 2 && logits.shape[0] == 1,
+               "ConfidenceLogitProcessor expects [1, vocab] logits, got \(logits.shape)")
         // logits arrive shaped [1, vocab]; softmax over the vocab axis, force to
         // float32 so asArray is dtype-safe, then read the row to the CPU once.
         let probs = softmax(logits, axis: -1).asType(.float32)
