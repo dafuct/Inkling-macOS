@@ -1,0 +1,49 @@
+import XCTest
+@testable import InklingCore
+
+final class ConfidenceGateTests: XCTestCase {
+    private let t = ConfidenceThresholds(firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5)
+
+    func test_emptyProbs_keepsNothing() {
+        XCTAssertEqual(ConfidenceGate.acceptedTokenCount(probs: [], thresholds: t), 0)
+    }
+
+    func test_weakFirstToken_keepsNothing() {
+        // 0.5 < firstTokenMinProb (0.65) -> silent, even though later tokens are strong
+        let probs: [(top1: Double, top2: Double)] = [(0.5, 0.1), (0.9, 0.01)]
+        XCTAssertEqual(ConfidenceGate.acceptedTokenCount(probs: probs, thresholds: t), 0)
+    }
+
+    func test_allConfident_keepsAll() {
+        let probs: [(top1: Double, top2: Double)] = [(0.9, 0.02), (0.8, 0.05), (0.7, 0.10)]
+        XCTAssertEqual(ConfidenceGate.acceptedTokenCount(probs: probs, thresholds: t), 3)
+    }
+
+    func test_confidenceDropsMidway_truncates() {
+        // idx 2: 0.30 < minProb (0.45) -> keep first two
+        let probs: [(top1: Double, top2: Double)] = [(0.9, 0.02), (0.7, 0.10), (0.30, 0.20)]
+        XCTAssertEqual(ConfidenceGate.acceptedTokenCount(probs: probs, thresholds: t), 2)
+    }
+
+    func test_dominanceFailure_truncates() {
+        // idx 1: 0.50 >= minProb but 0.50 < 1.5 * 0.40 (=0.60) -> fails dominance
+        let probs: [(top1: Double, top2: Double)] = [(0.9, 0.02), (0.50, 0.40)]
+        XCTAssertEqual(ConfidenceGate.acceptedTokenCount(probs: probs, thresholds: t), 1)
+    }
+
+    func test_zeroRunnerUp_disablesDominance() {
+        XCTAssertTrue(ConfidenceGate.accepts(top1: 0.66, top2: 0, isFirst: true, thresholds: t))
+    }
+
+    func test_top2_returnsTwoHighest() {
+        let r = ConfidenceGate.top2(of: [0.1, 0.7, 0.2, 0.05])
+        XCTAssertEqual(r.top1, 0.7, accuracy: 1e-6)
+        XCTAssertEqual(r.top2, 0.2, accuracy: 1e-6)
+    }
+
+    func test_top2_singleValue_secondIsZero() {
+        let r = ConfidenceGate.top2(of: [0.9])
+        XCTAssertEqual(r.top1, 0.9, accuracy: 1e-6)
+        XCTAssertEqual(r.top2, 0.0, accuracy: 1e-6)
+    }
+}
