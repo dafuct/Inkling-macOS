@@ -211,11 +211,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Only suggest at line end; mid-line ghost text would overlap what follows.
         guard context.isAtLineEnd else { dismiss(); return }
         let font = readout.font
-        let hint = memory.frequentVocabulary(max: 6).joined(separator: ", ")
+        // NOTE: we deliberately do NOT inject a "frequently used words" hint into
+        // the LLM prompt. It made the model regurgitate those words — typing "fo"
+        // produced "main" / "app" instead of completing the text. Personalization
+        // for high-confidence repeats is handled by the deterministic MemoryEngine.
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
-            await engine.setPersonalization(hint)
             let suggestion = await engine.suggestion(for: context)
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in
