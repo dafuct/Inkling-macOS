@@ -40,7 +40,8 @@ func userMessage(_ text: String) -> String {
     """
 }
 
-// Domain-spread suite: email, chat, notes, code, mid-word, at-space.
+// Domain-spread suite + adversarial repetition cases. The latter guard against
+// the prefix-echo loop bug: keep them permanently so tuning always checks loops.
 let prompts = [
     "Hi team, just following up on the",
     "lol yeah i think we should just",
@@ -50,12 +51,18 @@ let prompts = [
     "The meeting is scheduled for next ",
     "Per my last email, the deliverables are",
     "honestly idk maybe we",
+    "Look at this Look Look at this Look Look",   // prefix-echo loop trigger
+    "the the the the the",                        // degenerate repetition
 ]
 
+// Decoding penalty — keep in sync with Inkling's ModelConfig.
+let repetitionPenalty: Float = 1.3
+let repetitionContextSize = 40
+
 let sweep: [ConfidenceThresholds] = [
-    ConfidenceThresholds(firstTokenMinProb: 0.50, minProb: 0.35, dominance: 1.3),
+    ConfidenceThresholds(firstTokenMinProb: 0.55, minProb: 0.45, dominance: 1.5),
+    ConfidenceThresholds(firstTokenMinProb: 0.58, minProb: 0.45, dominance: 1.5),
     ConfidenceThresholds(firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5),
-    ConfidenceThresholds(firstTokenMinProb: 0.80, minProb: 0.55, dominance: 2.0),
 ]
 
 print("loading \(modelDir.lastPathComponent) …")
@@ -65,13 +72,14 @@ print("loaded in \(Int(Date().timeIntervalSince(loadStart) * 1000)) ms\n")
 
 func fmt(_ d: Double) -> String { String(format: "%.2f", d) }
 
-// --- Per-token probability dump (generate full length, gate at default) ---
-let defaults = ConfidenceThresholds()
-print("==== per-token confidence (default thresholds \(fmt(defaults.firstTokenMinProb))/\(fmt(defaults.minProb))/\(fmt(defaults.dominance))) ====\n")
+// --- Per-token probability dump (generate full length, gate at the app's value) ---
+let defaults = ConfidenceThresholds(firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5)
+print("==== per-token confidence (thresholds \(fmt(defaults.firstTokenMinProb))/\(fmt(defaults.minProb))/\(fmt(defaults.dominance)), repPenalty \(fmt(Double(repetitionPenalty)))) ====\n")
 for prompt in prompts {
     let r = try await GatedDecoder.decode(
         container: container, systemInstruction: system, userMessage: userMessage(prompt),
-        thresholds: defaults, maxTokens: 24, stopEarly: false)
+        thresholds: defaults, maxTokens: 24, stopEarly: false,
+        repetitionPenalty: repetitionPenalty, repetitionContextSize: repetitionContextSize)
     print("prompt=\"\(prompt)\"")
     for (i, tp) in r.probs.enumerated() {
         let mark = i < r.acceptedCount ? "✓" : "✗"
@@ -88,7 +96,8 @@ for th in sweep {
     for prompt in prompts {
         let r = try await GatedDecoder.decode(
             container: container, systemInstruction: system, userMessage: userMessage(prompt),
-            thresholds: th, maxTokens: 24, stopEarly: false)
+            thresholds: th, maxTokens: 24, stopEarly: false,
+            repetitionPenalty: repetitionPenalty, repetitionContextSize: repetitionContextSize)
         if r.acceptedCount > 0 { shown += 1 }
         lines.append("    \"\(prompt)\" => \(r.acceptedCount == 0 ? "(silent)" : "\"\(r.text)\"")")
     }
