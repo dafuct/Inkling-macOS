@@ -36,11 +36,12 @@ enum ModelConfig {
     static let maxTokens = 24
     static let promptMaxChars = 400
 
-    /// Confidence gates for the LLM path. Starting values — tune with InklingBench
-    /// (see docs/superpowers/plans). Higher firstTokenMinProb => fewer, surer
-    /// suggestions.
+    /// Confidence gates for the LLM path. Tuned on Qwen2.5-3B-Instruct via
+    /// InklingBench (Scripts/run-bench.sh): firstTokenMinProb sits in the 0.52–0.61
+    /// gap between ambiguous and clearly-dominant first tokens; dominance does most
+    /// of the quality gating. Higher firstTokenMinProb => fewer, surer suggestions.
     static let confidenceThresholds = ConfidenceThresholds(
-        firstTokenMinProb: 0.65, minProb: 0.45, dominance: 1.5)
+        firstTokenMinProb: 0.58, minProb: 0.45, dominance: 1.5)
 
     /// Role instruction: behave as a completion engine, not a chat assistant.
     static let baseSystemInstruction =
