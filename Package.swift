@@ -10,10 +10,22 @@ let package = Package(
     ],
     targets: [
         .target(name: "InklingCore"),
+        .target(
+            name: "InklingMLX",
+            dependencies: [
+                "InklingCore",
+                .product(name: "MLXLLM", package: "mlx-swift-lm"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
+                .product(name: "Tokenizers", package: "swift-transformers"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
         .executableTarget(
             name: "Inkling",
             dependencies: [
                 "InklingCore",
+                "InklingMLX",
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
@@ -29,6 +41,7 @@ let package = Package(
             name: "InklingBench",
             dependencies: [
                 "InklingCore",
+                "InklingMLX",
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
