@@ -50,6 +50,11 @@ actor MLXEngine: SuggestionEngine {
                 repetitionContextSize: ModelConfig.repetitionContextSize)
             if Task.isCancelled { return "" }
             let cleaned = CompletionPrompt.clean(result.text)
+            // Eager gating lets fluent sentence-RESTARTS through (the model
+            // rephrasing what was just typed instead of continuing); suppress them.
+            if SuggestionRepeatGuard.repeatsRecent(continuation: cleaned, recentText: promptText) {
+                return ""
+            }
             let endsWithSpace = promptText.last.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? true
             return CompletionPrompt.inlineSuggestion(
                 continuation: cleaned, currentWord: context.currentWord,
