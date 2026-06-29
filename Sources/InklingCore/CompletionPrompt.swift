@@ -23,29 +23,29 @@ public enum CompletionPrompt {
         return s
     }
 
-    /// Decide the exact text to insert at the caret, given the model's raw
+    /// Decide the exact text to insert at the caret, given the model's cleaned
     /// continuation, the partial word under the caret, and whether the prefix
     /// ends with whitespace.
     ///
-    /// `startsNewWord` is whether the model's RAW output began with whitespace —
-    /// the model's own signal that it meant a new word rather than finishing the
-    /// current one. (Pass it before `clean` strips the leading space.)
-    ///
-    /// Cases handled:
-    /// - The model restates the word being typed (caret after "h", model says
-    ///   "how are you") → insert only the new part ("ow are you").
-    /// - Mid-word, but the model started a NEW word (typed "fo", model said
-    ///   " main") → illogical, suppress. This stops frequent-word/garbage output
-    ///   from being glued onto the partial word ("fo"+"main"="fomain").
-    /// - The caret is in/after a word and the model continued it (no leading
-    ///   space) → the continuation completes it; inserted with no leading space
-    ///   (so "a"+"pproach"="approach", never "a pproach").
-    /// - After whitespace → a new word; inserted as-is.
+    /// The hard case is a non-empty `currentWord` (the caret sits right after a
+    /// run of word characters, e.g. "...is ready"). We cannot tell from the
+    /// strings whether the model is *finishing that word* or *continuing with a
+    /// new one* — and the model drops the leading space either way (the
+    /// "Continuation:" prompt format trains it to), so we cannot use its spacing.
+    /// We resolve it by contract:
+    /// - The model RESTATES the word (caret after "hel", model says "help me") →
+    ///   insert only the missing suffix, glued with no space → "p me".
+    /// - Otherwise the continuation is a NEW word, not a completion → space-
+    ///   separate it, so "ready"+"release" becomes "ready release", never
+    ///   "readyrelease". Partial-word completion is delivered via the restatement
+    ///   branch above and the deterministic memory tier — the LLM's job here is
+    ///   to continue, not to glue a bare suffix.
+    /// - After whitespace (`currentWord` empty) → a new word; inserted as-is, with
+    ///   a leading space only if the prefix didn't already end with one.
     public static func inlineSuggestion(
         continuation: String,
         currentWord: String,
-        prefixEndsWithSpace: Bool,
-        startsNewWord: Bool
+        prefixEndsWithSpace: Bool
     ) -> String {
         guard !continuation.isEmpty else { return "" }
         if !currentWord.isEmpty {
@@ -53,11 +53,8 @@ public enum CompletionPrompt {
             if continuation.lowercased().hasPrefix(currentWord.lowercased()) {
                 return String(continuation.dropFirst(currentWord.count))
             }
-            // Mid-word, but the model began a new word -> it ignored the partial
-            // word; gluing it on would be nonsense. Show nothing.
-            if startsNewWord { return "" }
-            // Otherwise it's the suffix that finishes the current word.
-            return continuation
+            // Not a restatement -> a new word continues the text; space-separate it.
+            return " " + continuation
         }
         return prefixEndsWithSpace ? continuation : " " + continuation
     }

@@ -24,73 +24,50 @@ final class CompletionPromptTests: XCTestCase {
         XCTAssertEqual(CompletionPrompt.clean(""), "")
     }
 
-    func test_inline_stripsRestatedWord() {
-        // caret after "h", model restates "how are you" -> insert "ow are you"
+    func test_inline_restatedWord_stripsToSuffix() {
+        // caret after "hel", model restates "help me with something" -> "p me with something"
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "how are you", currentWord: "h", prefixEndsWithSpace: false,
-                startsNewWord: false),
+                continuation: "help me with something", currentWord: "hel",
+                prefixEndsWithSpace: false),
+            "p me with something")
+    }
+
+    func test_inline_restatedWord_caseInsensitive() {
+        // caret after "h", model restates "how are you" -> "ow are you"
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(
+                continuation: "how are you", currentWord: "h", prefixEndsWithSpace: false),
             "ow are you")
     }
 
-    func test_inline_restateWithLeadingSpace_stillStrips() {
-        // even if the model began with a space, a restated word is stripped (the
-        // restate check wins over the new-word guard).
+    func test_inline_newWordAfterCompleteWord_getsSpace() {
+        // caret right after a complete word "ready" (no trailing space); the model
+        // continues with a NEW word -> space-separate, never "readyrelease".
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "how are you", currentWord: "h", prefixEndsWithSpace: false,
-                startsNewWord: true),
-            "ow are you")
+                continuation: "release soon", currentWord: "ready", prefixEndsWithSpace: false),
+            " release soon")
     }
 
-    func test_inline_midWordCompletesNoSpace_shortWord() {
-        // caret after "a" typing "approach" -> "pproach", never "a pproach"
+    func test_inline_newWordAfterSpace_insertedAsIs() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "pproach", currentWord: "a", prefixEndsWithSpace: false,
-                startsNewWord: false),
-            "pproach")
-    }
-
-    func test_inline_midWordCompletesNoSpace() {
-        XCTAssertEqual(
-            CompletionPrompt.inlineSuggestion(
-                continuation: "p me", currentWord: "hel", prefixEndsWithSpace: false,
-                startsNewWord: false),
-            "p me")
-    }
-
-    func test_inline_midWordNewWord_suppressed() {
-        // typed "fo", model started a NEW word ("main") -> illogical, show nothing
-        // (never glue "fo" + "main" = "fomain").
-        XCTAssertEqual(
-            CompletionPrompt.inlineSuggestion(
-                continuation: "main", currentWord: "fo", prefixEndsWithSpace: false,
-                startsNewWord: true),
-            "")
-    }
-
-    func test_inline_newWordAfterSpace() {
-        XCTAssertEqual(
-            CompletionPrompt.inlineSuggestion(
-                continuation: "library", currentWord: "", prefixEndsWithSpace: true,
-                startsNewWord: true),
+                continuation: "library", currentWord: "", prefixEndsWithSpace: true),
             "library")
     }
 
-    func test_inline_newWordAfterPunctuationGetsSpace() {
+    func test_inline_newWordAfterPunctuation_getsSpace() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "and then", currentWord: "", prefixEndsWithSpace: false,
-                startsNewWord: true),
+                continuation: "and then", currentWord: "", prefixEndsWithSpace: false),
             " and then")
     }
 
     func test_inline_emptyStaysEmpty() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "", currentWord: "x", prefixEndsWithSpace: false,
-                startsNewWord: false),
+                continuation: "", currentWord: "x", prefixEndsWithSpace: false),
             "")
     }
 }

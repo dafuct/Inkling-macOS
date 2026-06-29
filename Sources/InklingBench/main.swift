@@ -55,9 +55,9 @@ func userMessage(_ text: String) -> String {
     Text: The quick brown fox
     Continuation: jumps over the lazy dog
     Text: I was wondering if you could hel
-    Continuation: p me with something
+    Continuation: help me with something
     Text: hello, ho
-    Continuation: w are you doing
+    Continuation: how are you doing
     Text: Let me know if you have any
     Continuation: questions
     Text: \(text)
