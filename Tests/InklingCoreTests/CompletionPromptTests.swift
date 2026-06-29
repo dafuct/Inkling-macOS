@@ -41,13 +41,28 @@ final class CompletionPromptTests: XCTestCase {
             "ow are you")
     }
 
-    func test_inline_newWordAfterCompleteWord_getsSpace() {
-        // caret right after a complete word "ready" (no trailing space); the model
-        // continues with a NEW word -> space-separate, never "readyrelease".
+    func test_inline_nonRestatementMidWord_suppressed_partialWord() {
+        // Typing "contri" mid-word; the model gives a continuation that does NOT
+        // restate it. We cannot tell a completion ("contri"+"bute"="contribute",
+        // wants glue) from a new word ("ready"+"release", wants a space) from the
+        // strings, and both guesses produce garbage in the wrong case ("contri
+        // bute" / "readyrelease"). Suppress: mid-word completion arrives via the
+        // restatement branch below and the deterministic memory tier.
+        XCTAssertEqual(
+            CompletionPrompt.inlineSuggestion(
+                continuation: "bute to the project", currentWord: "contri",
+                prefixEndsWithSpace: false),
+            "")
+    }
+
+    func test_inline_nonRestatementMidWord_suppressed_completeWord() {
+        // The other half of the same ambiguity: caret after a complete word with
+        // no trailing space. Also suppressed (a continuation arrives once the user
+        // types the separating space -> currentWord empty -> shown).
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
                 continuation: "release soon", currentWord: "ready", prefixEndsWithSpace: false),
-            " release soon")
+            "")
     }
 
     func test_inline_newWordAfterSpace_insertedAsIs() {
