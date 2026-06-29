@@ -237,13 +237,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let font = readout.font
+        // Whether the word under the caret is a complete word (continuation is a
+        // new word -> space) or a partial word being typed (continuation completes
+        // it -> glue). Computed here on the main actor where `memory` lives.
+        let currentWordIsComplete = WordCompleteness.isComplete(context.currentWord, memory: memory)
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
             // Personalization is deterministic (the memory tier above), NOT a
             // frequent-vocab hint injected into the LLM prompt — that made the
             // model regurgitate those words instead of continuing (commit a8e524e).
-            let suggestion = await engine.suggestion(for: context)
+            let suggestion = await engine.suggestion(
+                for: context, currentWordIsComplete: currentWordIsComplete)
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in
                 guard let self else { return }

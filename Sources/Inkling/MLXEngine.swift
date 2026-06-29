@@ -34,7 +34,7 @@ actor MLXEngine: SuggestionEngine {
         return c
     }
 
-    func suggestion(for context: InklingCore.TextContext) async -> String {
+    func suggestion(for context: InklingCore.TextContext, currentWordIsComplete: Bool) async -> String {
         let promptText = CompletionPrompt.prompt(for: context, maxChars: ModelConfig.promptMaxChars)
         guard promptText.count >= 2 else { return "" }
         do {
@@ -58,7 +58,7 @@ actor MLXEngine: SuggestionEngine {
             let endsWithSpace = promptText.last.map { $0 == " " || $0 == "\n" || $0 == "\t" } ?? true
             return CompletionPrompt.inlineSuggestion(
                 continuation: cleaned, currentWord: context.currentWord,
-                prefixEndsWithSpace: endsWithSpace)
+                prefixEndsWithSpace: endsWithSpace, currentWordIsComplete: currentWordIsComplete)
         } catch {
             NSLog("Inkling: MLXEngine error: \(error)")
             return ""

@@ -25,64 +25,64 @@ final class CompletionPromptTests: XCTestCase {
     }
 
     func test_inline_restatedWord_stripsToSuffix() {
-        // caret after "hel", model restates "help me with something" -> "p me with something"
+        // caret after "hel", model restates "help me with something" -> "p me ..."
+        // (restatement wins regardless of completeness).
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
                 continuation: "help me with something", currentWord: "hel",
-                prefixEndsWithSpace: false),
+                prefixEndsWithSpace: false, currentWordIsComplete: false),
             "p me with something")
     }
 
     func test_inline_restatedWord_caseInsensitive() {
-        // caret after "h", model restates "how are you" -> "ow are you"
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "how are you", currentWord: "h", prefixEndsWithSpace: false),
+                continuation: "how are you", currentWord: "h",
+                prefixEndsWithSpace: false, currentWordIsComplete: false),
             "ow are you")
     }
 
-    func test_inline_nonRestatementMidWord_suppressed_partialWord() {
-        // Typing "contri" mid-word; the model gives a continuation that does NOT
-        // restate it. We cannot tell a completion ("contri"+"bute"="contribute",
-        // wants glue) from a new word ("ready"+"release", wants a space) from the
-        // strings, and both guesses produce garbage in the wrong case ("contri
-        // bute" / "readyrelease"). Suppress: mid-word completion arrives via the
-        // restatement branch below and the deterministic memory tier.
+    func test_inline_partialWord_glues() {
+        // "contri" is not a complete word -> the continuation completes it, no
+        // space: "contri"+"bute to the project" = "contribute to the project".
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
                 continuation: "bute to the project", currentWord: "contri",
-                prefixEndsWithSpace: false),
-            "")
+                prefixEndsWithSpace: false, currentWordIsComplete: false),
+            "bute to the project")
     }
 
-    func test_inline_nonRestatementMidWord_suppressed_completeWord() {
-        // The other half of the same ambiguity: caret after a complete word with
-        // no trailing space. Also suppressed (a continuation arrives once the user
-        // types the separating space -> currentWord empty -> shown).
+    func test_inline_completeWord_getsSpace() {
+        // "ready" is a complete word -> the continuation is a NEW word, space-
+        // separated: "ready"+"release soon" = "ready release soon".
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "release soon", currentWord: "ready", prefixEndsWithSpace: false),
-            "")
+                continuation: "release soon", currentWord: "ready",
+                prefixEndsWithSpace: false, currentWordIsComplete: true),
+            " release soon")
     }
 
     func test_inline_newWordAfterSpace_insertedAsIs() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "library", currentWord: "", prefixEndsWithSpace: true),
+                continuation: "library", currentWord: "",
+                prefixEndsWithSpace: true, currentWordIsComplete: false),
             "library")
     }
 
     func test_inline_newWordAfterPunctuation_getsSpace() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "and then", currentWord: "", prefixEndsWithSpace: false),
+                continuation: "and then", currentWord: "",
+                prefixEndsWithSpace: false, currentWordIsComplete: false),
             " and then")
     }
 
     func test_inline_emptyStaysEmpty() {
         XCTAssertEqual(
             CompletionPrompt.inlineSuggestion(
-                continuation: "", currentWord: "x", prefixEndsWithSpace: false),
+                continuation: "", currentWord: "x",
+                prefixEndsWithSpace: false, currentWordIsComplete: true),
             "")
     }
 }

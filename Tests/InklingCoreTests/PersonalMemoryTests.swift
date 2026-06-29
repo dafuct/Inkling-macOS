@@ -9,6 +9,14 @@ final class PersonalMemoryTests: XCTestCase {
         XCTAssertEqual(m.wordCounts["hello"], 2)
     }
 
+    func test_knows_recognizesLearnedWordCaseInsensitively() {
+        let m = PersonalMemory()
+        m.learn(word: "Debounce", previous: [])
+        XCTAssertTrue(m.knows(word: "Debounce"))
+        XCTAssertTrue(m.knows(word: "debounce"))   // case-insensitive
+        XCTAssertFalse(m.knows(word: "contri"))     // never typed
+    }
+
     func test_wordCandidates_matchPrefixCaseInsensitively_sortedByCount() {
         let m = PersonalMemory()
         for _ in 0..<3 { m.learn(word: "Makarenko", previous: []) }

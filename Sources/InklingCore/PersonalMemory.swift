@@ -31,6 +31,16 @@ public final class PersonalMemory {
         }
     }
 
+    /// Whether the user has typed this exact word before (case-insensitive).
+    /// Lets the spacing logic treat the user's own vocabulary — including
+    /// technical terms absent from the system dictionary ("debounce",
+    /// "keystrokes") — as complete words.
+    public func knows(word: String) -> Bool {
+        if wordCounts[word] != nil { return true }
+        let lower = word.lowercased()
+        return wordCounts.keys.contains { $0.lowercased() == lower }
+    }
+
     /// Learned words that extend `prefix` (case-insensitive), longest-count
     /// first. The exact prefix itself is excluded (no zero-length completion).
     public func wordCandidates(withPrefix prefix: String) -> [(word: String, count: Double)] {

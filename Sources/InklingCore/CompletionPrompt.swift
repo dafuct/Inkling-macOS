@@ -30,23 +30,25 @@ public enum CompletionPrompt {
     /// The hard case is a non-empty `currentWord` (the caret sits right after a
     /// run of word characters, e.g. "...is ready" or mid-typing "contri"). We
     /// cannot tell from the strings whether the model is *finishing that word*
-    /// ("contri"+"bute" → wants "contribute") or *continuing with a new one*
-    /// ("ready"+"release" → wants "ready release"): both are non-restatement, and
-    /// the model drops the leading space either way (the "Continuation:" prompt
-    /// format trains it to). Guessing glue produces "readyrelease"; guessing a
-    /// space produces "contri bute". So we resolve it by contract:
+    /// ("contri"+"bute" → "contribute") or *continuing with a new one*
+    /// ("ready"+"release" → "ready release"): both are non-restatement, and the
+    /// model drops the leading space either way (the "Continuation:" prompt format
+    /// trains it to). `currentWordIsComplete` (whether `currentWord` is a whole
+    /// dictionary word, decided by the caller — see the app's spell-check) breaks
+    /// the tie:
     /// - The model RESTATES the word (caret after "hel", model says "help me") →
     ///   insert only the missing suffix, glued with no space → "p me".
-    /// - Otherwise → SUPPRESS. Mid-word completion is delivered via the
-    ///   restatement branch above and the deterministic memory tier; a genuine
-    ///   continuation appears once the user types the separating space (then
-    ///   `currentWord` is empty and the branch below shows it).
+    /// - `currentWord` is a complete word → the continuation is a NEW word →
+    ///   space-separate it ("ready"+"release" → "ready release").
+    /// - `currentWord` is a partial word still being typed → the continuation
+    ///   completes it → glue with no space ("contri"+"bute" → "contribute").
     /// - After whitespace (`currentWord` empty) → a new word; inserted as-is, with
     ///   a leading space only if the prefix didn't already end with one.
     public static func inlineSuggestion(
         continuation: String,
         currentWord: String,
-        prefixEndsWithSpace: Bool
+        prefixEndsWithSpace: Bool,
+        currentWordIsComplete: Bool
     ) -> String {
         guard !continuation.isEmpty else { return "" }
         if !currentWord.isEmpty {
@@ -54,9 +56,8 @@ public enum CompletionPrompt {
             if continuation.lowercased().hasPrefix(currentWord.lowercased()) {
                 return String(continuation.dropFirst(currentWord.count))
             }
-            // Ambiguous (completion vs new word) and unresolvable from the strings
-            // -> suppress rather than risk "readyrelease" or "contri bute".
-            return ""
+            // Complete word -> new word (space); partial word -> completion (glue).
+            return currentWordIsComplete ? " " + continuation : continuation
         }
         return prefixEndsWithSpace ? continuation : " " + continuation
     }
