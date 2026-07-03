@@ -4,6 +4,10 @@ import Security
 
 /// Fetches or creates the app's 256-bit symmetric key in the Keychain. Marked
 /// ThisDeviceOnly so encrypted typing history never syncs off this Mac.
+///
+/// Main-thread only (like the stores that use it): concurrent getOrCreate()
+/// calls could each mint a key with the last write winning, orphaning data
+/// sealed under the loser.
 enum KeychainKey {
     private static let service = "app.inkling.inputstore"
     private static let account = "aesKey"
@@ -12,6 +16,11 @@ enum KeychainKey {
         if let existing = load() { return existing }
         let key = SymmetricKey(size: .bits256)
         save(key)
+        // Verify the key actually persisted: if the Keychain write failed, a
+        // fresh key would be generated next launch and everything sealed under
+        // this one would be lost. Prefer the persisted key as truth.
+        if let persisted = load() { return persisted }
+        NSLog("Inkling: WARNING — Keychain save failed; encryption key is memory-only this session")
         return key
     }
 
@@ -39,7 +48,10 @@ enum KeychainKey {
             kSecValueData as String: data,
         ]
         SecItemDelete(query as CFDictionary)   // avoid duplicate-item errors
-        SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            NSLog("Inkling: Keychain SecItemAdd failed (status \(status))")
+        }
     }
 }
 
