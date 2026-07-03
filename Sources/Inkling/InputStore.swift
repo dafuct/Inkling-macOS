@@ -25,7 +25,10 @@ final class InputStore {
         let dir = base.appendingPathComponent("Inkling", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("inputs.dat")
-        records = Self.load(url: url, key: key)
+        let loaded = Self.load(url: url, key: key)
+        // Defense in depth: enforce the cap at load too, so an over-cap file
+        // (however it got that way) can't hold unbounded records in memory.
+        records = loaded.count > cap ? Array(loaded.suffix(cap)) : loaded
     }
 
     func allRecords() -> [InputRecord] { records }
