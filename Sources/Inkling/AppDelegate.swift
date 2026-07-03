@@ -4,6 +4,7 @@ import InklingCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTap = EventTapController()
     private let settings = SettingsStore.shared
+    private let settingsWindow = SettingsWindowController()
     private let overlay = OverlayWindow()
     private var engine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
     private let debouncer = Debouncer(delay: ModelConfig.suggestionDebounceSeconds)
@@ -24,6 +25,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
+
+        NotificationCenter.default.addObserver(
+            forName: .inklingModelChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.reloadEngine()
+        }
 
         let trusted = PermissionsManager.isAccessibilityTrusted(prompt: true)
         NSLog("Inkling: launched. accessibilityTrusted=\(trusted)")
@@ -92,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func rebuildMenu() {
         let menu = NSMenu()
+        menu.delegate = self
 
         let toggle = NSMenuItem(
             title: "Suggestions Enabled", action: #selector(toggleEnabled), keyEquivalent: "")
@@ -123,10 +131,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(clear)
 
         menu.addItem(.separator())
+        let settingsItem = NSMenuItem(
+            title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(
             title: "Quit Inkling", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         statusItem?.menu = menu
+    }
+
+    @objc private func openSettings() {
+        settingsWindow.show()
     }
 
     @objc private func toggleEnabled() {
@@ -332,5 +350,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.overlay.show(text: remainder, caretBounds: bounds, font: readout.font)
             self.eventTap.suggestionVisible = true
         }
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    /// Called each time the status menu is about to open; rebuild so
+    /// checkmarks reflect changes made in the settings window.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        rebuildMenu()
     }
 }
