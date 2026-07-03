@@ -47,6 +47,18 @@ struct PersonalizationPane: View {
                     Button("Delete All…", role: .destructive) { showDeleteConfirm = true }
                 }
             }
+
+            Section("Custom AI Instructions") {
+                TextEditor(text: $store.state.global.customInstructions)
+                    .font(.body.monospaced())
+                    .frame(minHeight: 100)
+                Toggle("Use in suggestions (experimental)",
+                       isOn: $store.state.global.instructionPreambleEnabled)
+                    .disabled(store.state.global.customInstructions
+                        .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Text("A short steering hint for the on-device model — best kept brief (name, languages, terse/formal). Experimental: it may occasionally misfire, so validate before relying on it. Per-app instructions in App Settings add to this.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .navigationTitle("Personalization")
