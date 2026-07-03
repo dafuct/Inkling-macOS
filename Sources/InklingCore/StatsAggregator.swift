@@ -7,6 +7,20 @@ public struct StatsBucket: Equatable, Sendable {
     public init(start: Date, value: Int) { self.start = start; self.value = value }
 }
 
+/// Footer stats for the Statistics screen.
+public struct StatsSummary: Equatable, Sendable {
+    public let total: Int
+    public let activeDays: Int
+    public let dailyAverage: Int
+    public let timeSavedMinutes: ClosedRange<Int>
+    public init(total: Int, activeDays: Int, dailyAverage: Int, timeSavedMinutes: ClosedRange<Int>) {
+        self.total = total
+        self.activeDays = activeDays
+        self.dailyAverage = dailyAverage
+        self.timeSavedMinutes = timeSavedMinutes
+    }
+}
+
 /// Pure aggregation over completion events. All time reasoning uses the injected
 /// `now` and `calendar` — no wall-clock calls here — so it is fully testable.
 public enum StatsAggregator {
@@ -61,5 +75,37 @@ public enum StatsAggregator {
         }
         return sums.map { StatsBucket(start: $0.key, value: $0.value) }
             .sorted { $0.start < $1.start }
+    }
+
+    public static func summary(events: [CompletionEvent], range: StatsRange,
+                               metric: StatsMetric,
+                               now: Date, calendar: Calendar = .current) -> StatsSummary {
+        let inRange = filtered(events, range, now: now, calendar: calendar)
+        let total = inRange.reduce(0) { $0 + metricValue($1, metric) }
+        let days = Set(inRange.map { calendar.startOfDay(for: $0.timestamp) })
+        let activeDays = days.count
+        let dailyAverage = activeDays == 0 ? 0 : total / activeDays
+        let totalChars = inRange.reduce(0) { $0 + $1.chars }
+        let saved = timeSaved(chars: totalChars)
+        return StatsSummary(total: total, activeDays: activeDays,
+                            dailyAverage: dailyAverage, timeSavedMinutes: saved)
+    }
+
+    /// Minute range from accepted chars: ceil(chars / cpm) for each bound.
+    static func timeSaved(chars: Int) -> ClosedRange<Int> {
+        guard chars > 0 else { return 0...0 }
+        let fast = Int((Double(chars) / fastCPM).rounded(.up))   // fewer minutes
+        let slow = Int((Double(chars) / slowCPM).rounded(.up))   // more minutes
+        return min(fast, slow)...max(fast, slow)
+    }
+
+    public static func todayTotals(events: [CompletionEvent],
+                                   now: Date, calendar: Calendar = .current)
+        -> (words: Int, completions: Int) {
+        let startToday = calendar.startOfDay(for: now)
+        let today = events.filter { calendar.startOfDay(for: $0.timestamp) == startToday }
+        let words = today.reduce(0) { $0 + $1.words }
+        let completions = today.reduce(0) { $0 + ($1.isFirstChunk ? 1 : 0) }
+        return (words, completions)
     }
 }
