@@ -10,6 +10,10 @@ final class EventTapController {
     var onDismiss: (() -> Void)?
     var onType: ((String) -> Void)?
     var onDelete: (() -> Void)?
+    /// Consulted before swallowing the accept key while a suggestion is
+    /// visible; return false to let the keystroke pass through (per-app
+    /// "Disable accept key"). nil means always swallow.
+    var shouldSwallowAccept: (() -> Bool)?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -63,7 +67,11 @@ final class EventTapController {
             }
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
             if suggestionVisible {
-                if keyCode == acceptKeyCode { onAccept?(); return nil }   // swallow ` (accept)
+                // swallow ` (accept) unless the accept key is disabled for this app
+                if keyCode == acceptKeyCode, shouldSwallowAccept?() ?? true {
+                    onAccept?()
+                    return nil
+                }
                 if keyCode == escKeyCode { onDismiss?(); return nil }  // swallow Esc
             }
             // Capture for personalization (skip when a shortcut modifier is held).

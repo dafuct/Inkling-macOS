@@ -35,6 +35,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         eventTap.onKeyDown = { [weak self] in self?.onKeyDown() }
         eventTap.onAccept = { [weak self] in DispatchQueue.main.async { self?.acceptNextWord() } }
         eventTap.onDismiss = { [weak self] in DispatchQueue.main.async { self?.dismiss() } }
+        eventTap.shouldSwallowAccept = { [weak self] in
+            guard let self else { return true }
+            return EffectiveSettings.acceptKeyEnabled(
+                state: self.settings.state, bundleID: FrontmostApp.bundleID)
+        }
 
         memoryStore.load()
         memory.decay()   // fade + bound once per launch
