@@ -22,11 +22,32 @@ final class SettingsModelTests: XCTestCase {
         let decoded = try JSONDecoder().decode(SettingsState.self, from: Data("{}".utf8))
         XCTAssertEqual(decoded, SettingsState())
         XCTAssertTrue(decoded.global.enabled)
-        XCTAssertTrue(decoded.global.learningEnabled)
+        XCTAssertTrue(decoded.global.collectInputs)
+        XCTAssertTrue(decoded.global.storeWithoutAccepted)
+        XCTAssertEqual(decoded.global.personalizeLevel, 1)
         XCTAssertFalse(decoded.global.midLineEnabled)
         XCTAssertTrue(decoded.global.autocorrectEnabled)
         XCTAssertFalse(decoded.global.disableAcceptKeyDefault)
         XCTAssertEqual(decoded.version, 1)
+    }
+
+    func test_decodingLegacyLearningEnabled_mapsToCollectInputs() throws {
+        let json = #"{"global":{"learningEnabled":false}}"#
+        let decoded = try JSONDecoder().decode(SettingsState.self, from: Data(json.utf8))
+        XCTAssertFalse(decoded.global.collectInputs)
+    }
+
+    func test_decodingCollectInputs_takesPrecedenceOverLegacy() throws {
+        let json = #"{"global":{"collectInputs":true,"learningEnabled":false}}"#
+        let decoded = try JSONDecoder().decode(SettingsState.self, from: Data(json.utf8))
+        XCTAssertTrue(decoded.global.collectInputs)
+    }
+
+    func test_encoding_neverWritesLegacyLearningEnabledKey() throws {
+        let data = try JSONEncoder().encode(SettingsState())
+        let json = String(decoding: data, as: UTF8.self)
+        XCTAssertFalse(json.contains("learningEnabled"))
+        XCTAssertTrue(json.contains("collectInputs"))
     }
 
     func test_decodingPartialOverrides_fillsDefaults() throws {

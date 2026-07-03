@@ -6,6 +6,8 @@ extension Notification.Name {
     /// Posted after `state.global.selectedModel` changes from the settings
     /// window, so AppDelegate reloads the engine.
     static let inklingModelChanged = Notification.Name("InklingModelChanged")
+    /// Posted by the Personalization pane's "Delete All" to wipe typing history.
+    static let inklingClearLearnedData = Notification.Name("InklingClearLearnedData")
 }
 
 /// Single source of truth for app settings. Main-thread only — the event tap,

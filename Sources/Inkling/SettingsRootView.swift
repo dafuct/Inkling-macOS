@@ -42,9 +42,7 @@ struct SettingsRootView: View {
             case .appSettings:
                 AppSettingsPane()
             case .personalization:
-                PlaceholderPane(
-                    title: "Personalization",
-                    note: "Typing history & word-choice personalization arrive with subproject B.")
+                PersonalizationPane()
             case .context:
                 PlaceholderPane(
                     title: "Context",
@@ -87,11 +85,6 @@ struct GeneralPane: View {
                         Text($0).tag($0)
                     }
                 }
-            }
-            Section("Learning") {
-                Toggle("Learn from my typing", isOn: $store.state.global.learningEnabled)
-                Text("Feeds the on-device personal memory. Pausing keeps existing data.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

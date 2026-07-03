@@ -148,4 +148,28 @@ enum FocusContextProvider {
         return CaretReadout(
             text: text, caretIndex: caretIndex, caretBounds: caretBounds, font: caretFont)
     }
+
+    /// The currently focused UI element, or nil. Cheaper than `currentReadout()`
+    /// (no text/bounds/font) — used to detect focus-session boundaries.
+    static func focusedElement() -> AXUIElement? {
+        let system = AXUIElementCreateSystemWide()
+        var focusedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            system, kAXFocusedUIElementAttribute as CFString, &focusedRef
+        ) == .success, let focusedRef,
+        CFGetTypeID(focusedRef) == AXUIElementGetTypeID() else { return nil }
+        return (focusedRef as! AXUIElement)
+    }
+
+    /// The text value of a specific element (read from a retained element even
+    /// after focus has moved on). Returns nil for secure fields or non-text.
+    static func text(of element: AXUIElement) -> String? {
+        var roleRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef) == .success,
+           let role = roleRef as? String, role == "AXSecureTextField" { return nil }
+        var valueRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef) == .success,
+              let value = valueRef as? String else { return nil }
+        return value
+    }
 }
