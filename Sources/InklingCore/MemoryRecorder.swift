@@ -32,6 +32,10 @@ public final class MemoryRecorder {
         recentWords = []
     }
 
+    /// Commit any in-progress word (e.g. replayed text that ends mid-word) so
+    /// the trailing word isn't lost. Used by MemoryRebuilder.
+    public func flush() { commit() }
+
     private func commit() {
         guard !currentWord.isEmpty else { return }
         let word = currentWord
