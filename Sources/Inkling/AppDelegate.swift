@@ -14,6 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let memory = PersonalMemory()
     private lazy var memoryStore = MemoryStore(memory: memory)
     private let recorder = MemoryRecorder()
+    private let inputStore = InputStore.shared
+    private lazy var inputCollector = InputCollector(
+        store: inputStore,
+        isCollecting: { [weak self] in self?.settings.state.global.collectInputs ?? false },
+        storeWithoutAccepted: { [weak self] in self?.settings.state.global.storeWithoutAccepted ?? true })
     private enum SuggestionSource { case none, memory, llm }
     private var suggestionSource: SuggestionSource = .none
     /// True when the currently-shown memory suggestion was an exact word-repeat
@@ -32,6 +37,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.reloadEngine()
         }
 
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.inputCollector.onAppSwitched()
+        }
+        NotificationCenter.default.addObserver(
+            forName: .inklingClearLearnedData, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.clearLearned()
+        }
+
         let trusted = PermissionsManager.isAccessibilityTrusted(prompt: true)
         NSLog("Inkling: launched. accessibilityTrusted=\(trusted)")
         guard trusted else {
@@ -48,7 +64,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 state: self.settings.state, bundleID: FrontmostApp.bundleID)
         }
 
-        memoryStore.load()
+        // Inputs are the source of truth: rebuild the derived model from them.
+        // memory.json remains a warm cache written by live learning.
+        MemoryRebuilder.rebuild(from: inputStore.allRecords(), into: memory)
         memory.decay()   // fade + bound once per launch
 
         recorder.onWord = { [weak self] word, context in
@@ -69,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
                 self.recorder.append(s)
+                self.inputCollector.onKeystroke()
             }
         }
         eventTap.onDelete = { [weak self] in
@@ -88,6 +107,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         memoryStore.saveNow()
         settings.saveNow()
+        inputCollector.endCurrentSession()
+        inputStore.saveNow()
     }
 
     private func setupMenuBar() {
@@ -161,9 +182,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func clearLearned() {
-        memoryStore.clear()
+        inputStore.deleteAll()   // canonical typing history
+        memoryStore.clear()      // derived model + cache
         recorder.reset()
-        NSLog("Inkling: cleared learned data")
+        inputCollector.endCurrentSession()
+        NSLog("Inkling: cleared typing history + learned data")
     }
 
     @objc private func selectModel(_ sender: NSMenuItem) {
@@ -201,10 +224,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// true (and shows ghost text) when memory is confident AND the live field
     /// agrees with the buffer; false otherwise.
     private func tryMemorySuggestion() -> Bool {
+        guard let gates = MemoryEngine.gates(forLevel: settings.state.global.personalizeLevel)
+        else { return false }
         guard let hit = MemoryEngine.hit(
             currentWord: recorder.currentWord,
             precedingWords: recorder.recentWords,
-            memory: memory
+            memory: memory,
+            gates: gates
         ), !hit.text.isEmpty else { return false }
         let suffix = hit.text
 
@@ -328,6 +354,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// re-query and change the completion. Our inserted keystrokes are tagged and
     /// ignored by the event tap, so they don't trigger a fresh query.
     private func acceptNextWord() {
+        inputCollector.noteAccepted()
         accepting = true
         let split = SuggestionSplitter.nextChunk(of: currentSuggestion)
         guard !split.chunk.isEmpty else { dismiss(); return }
