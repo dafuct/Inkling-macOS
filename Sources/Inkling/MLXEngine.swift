@@ -33,14 +33,26 @@ actor MLXEngine: SuggestionEngine {
         return c
     }
 
+    /// SuggestionEngine conformance (no custom instructions).
     func suggestion(for context: InklingCore.TextContext, currentWordIsComplete: Bool) async -> String {
+        await suggestion(for: context, currentWordIsComplete: currentWordIsComplete, instructions: nil)
+    }
+
+    func suggestion(for context: InklingCore.TextContext, currentWordIsComplete: Bool,
+                    instructions: String?) async -> String {
         let promptText = CompletionPrompt.prompt(for: context, maxChars: ModelConfig.promptMaxChars)
         guard promptText.count >= 2 else { return "" }
+        // Optional instruction preamble: prepended before the document tail on
+        // short tails only. nil when no instructions or the tail is long.
+        let preamble = instructions.flatMap {
+            InstructionPreamble.build(instructions: $0, tailLength: promptText.count)
+        }
+        let framed = preamble.map { $0 + promptText } ?? promptText
         let word = context.currentWord
         let completing = !word.isEmpty && !currentWordIsComplete
         do {
             guard completing else {
-                let direct = try await decodeAndTrim(rawPrompt: promptText)
+                let direct = try await decodeAndTrim(rawPrompt: framed, preamble: preamble)
                 return Task.isCancelled ? "" : direct
             }
             // Mid-word on a non-dictionary fragment: NEVER glue a direct
@@ -50,8 +62,8 @@ actor MLXEngine: SuggestionEngine {
             // prefix-matches what the user typed. A mid-word suggestion that
             // fights the user's word is worse than silence (and the instant
             // memory tier already covers learned-word completions).
-            let backupPrompt = MidWordCompletion.decodePrompt(prefix: promptText, currentWord: word)
-            let regenerated = try await decodeAndTrim(rawPrompt: backupPrompt)
+            let backupPrompt = MidWordCompletion.decodePrompt(prefix: framed, currentWord: word)
+            let regenerated = try await decodeAndTrim(rawPrompt: backupPrompt, preamble: preamble)
             if Task.isCancelled { return "" }
             guard let remainder = MidWordCompletion.resolve(candidate: regenerated, currentWord: word)
             else { return "" }
@@ -63,7 +75,7 @@ actor MLXEngine: SuggestionEngine {
     }
 
     /// One raw decode + trim + guards; "" means nothing worth showing.
-    private func decodeAndTrim(rawPrompt: String) async throws -> String {
+    private func decodeAndTrim(rawPrompt: String, preamble: String? = nil) async throws -> String {
         let container = try await loadedContainer()
         let result = try await GatedDecoder.decode(
             container: container,
@@ -87,6 +99,14 @@ actor MLXEngine: SuggestionEngine {
         // Raw framing rarely restates, but a rephrase-restart is still the one
         // failure the probability signals can't see; content-word guard.
         if SuggestionRepeatGuard.repeatsRecent(continuation: trimmed, recentText: rawPrompt) {
+            return ""
+        }
+        // The shared guard above only sees the last ~16 words of rawPrompt, which
+        // are the document tail — not the prepended preamble. Check the preamble
+        // explicitly with a wide window so an instruction echo is suppressed.
+        if let preamble,
+           SuggestionRepeatGuard.repeatsRecent(
+               continuation: trimmed, recentText: preamble, recentWindow: 100) {
             return ""
         }
         return trimmed
