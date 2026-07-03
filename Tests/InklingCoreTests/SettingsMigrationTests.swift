@@ -7,7 +7,7 @@ final class SettingsMigrationTests: XCTestCase {
             enabled: false, selectedModel: "gemma-4-e4b-it-4bit", learningEnabled: false)
         XCTAssertFalse(s.global.enabled)
         XCTAssertEqual(s.global.selectedModel, "gemma-4-e4b-it-4bit")
-        XCTAssertFalse(s.global.learningEnabled)
+        XCTAssertFalse(s.global.collectInputs)
         XCTAssertTrue(s.perApp.isEmpty)
         XCTAssertTrue(s.appUsage.isEmpty)
     }
@@ -17,6 +17,6 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(s, SettingsState())
         XCTAssertTrue(s.global.enabled)
         XCTAssertNil(s.global.selectedModel)
-        XCTAssertTrue(s.global.learningEnabled)
+        XCTAssertTrue(s.global.collectInputs)
     }
 }

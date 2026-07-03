@@ -9,7 +9,7 @@ public enum SettingsMigration {
         var state = SettingsState()
         state.global.enabled = enabled ?? true
         state.global.selectedModel = selectedModel
-        state.global.learningEnabled = learningEnabled ?? true
+        state.global.collectInputs = learningEnabled ?? true
         return state
     }
 }

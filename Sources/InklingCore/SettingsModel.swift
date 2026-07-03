@@ -76,7 +76,9 @@ public struct AppUsageInfo: Codable, Equatable, Sendable {
 public struct GlobalSettings: Codable, Equatable, Sendable {
     public var enabled: Bool
     public var selectedModel: String?
-    public var learningEnabled: Bool
+    public var collectInputs: Bool           // was learningEnabled; master capture+learn gate
+    public var storeWithoutAccepted: Bool    // store inputs even without an accepted completion
+    public var personalizeLevel: Int         // 0=off … MemoryEngine.maxPersonalizationLevel
     public var midLineEnabled: Bool          // consumed by subproject E
     // TODO(subproject F): defaults true but no autocorrect engine exists yet — revisit so it doesn't silently enable on first ship.
     public var autocorrectEnabled: Bool      // consumed by subproject F
@@ -85,27 +87,58 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
     public init(
         enabled: Bool = true,
         selectedModel: String? = nil,
-        learningEnabled: Bool = true,
+        collectInputs: Bool = true,
+        storeWithoutAccepted: Bool = true,
+        personalizeLevel: Int = 1,
         midLineEnabled: Bool = false,
         autocorrectEnabled: Bool = true,
         disableAcceptKeyDefault: Bool = false
     ) {
         self.enabled = enabled
         self.selectedModel = selectedModel
-        self.learningEnabled = learningEnabled
+        self.collectInputs = collectInputs
+        self.storeWithoutAccepted = storeWithoutAccepted
+        self.personalizeLevel = personalizeLevel
         self.midLineEnabled = midLineEnabled
         self.autocorrectEnabled = autocorrectEnabled
         self.disableAcceptKeyDefault = disableAcceptKeyDefault
+    }
+
+    // Explicit keys so the decoder can fall back to the legacy `learningEnabled`
+    // name. `learningEnabled` has no matching property, so synthesized encoding
+    // never writes it — it exists only for reading pre-rename files.
+    enum CodingKeys: String, CodingKey {
+        case enabled, selectedModel, collectInputs, learningEnabled
+        case storeWithoutAccepted, personalizeLevel
+        case midLineEnabled, autocorrectEnabled, disableAcceptKeyDefault
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
         selectedModel = try c.decodeIfPresent(String.self, forKey: .selectedModel)
-        learningEnabled = try c.decodeIfPresent(Bool.self, forKey: .learningEnabled) ?? true
+        collectInputs = try c.decodeIfPresent(Bool.self, forKey: .collectInputs)
+            ?? c.decodeIfPresent(Bool.self, forKey: .learningEnabled) ?? true
+        storeWithoutAccepted = try c.decodeIfPresent(Bool.self, forKey: .storeWithoutAccepted) ?? true
+        personalizeLevel = try c.decodeIfPresent(Int.self, forKey: .personalizeLevel) ?? 1
         midLineEnabled = try c.decodeIfPresent(Bool.self, forKey: .midLineEnabled) ?? false
         autocorrectEnabled = try c.decodeIfPresent(Bool.self, forKey: .autocorrectEnabled) ?? true
         disableAcceptKeyDefault = try c.decodeIfPresent(Bool.self, forKey: .disableAcceptKeyDefault) ?? false
+    }
+
+    // `learningEnabled` has no stored property, so it can never be synthesized —
+    // a custom init(from:) also disables encode(to:) synthesis entirely. Written
+    // by hand; deliberately omits the `.learningEnabled` key (decode-only).
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(enabled, forKey: .enabled)
+        try c.encodeIfPresent(selectedModel, forKey: .selectedModel)
+        try c.encode(collectInputs, forKey: .collectInputs)
+        try c.encode(storeWithoutAccepted, forKey: .storeWithoutAccepted)
+        try c.encode(personalizeLevel, forKey: .personalizeLevel)
+        try c.encode(midLineEnabled, forKey: .midLineEnabled)
+        try c.encode(autocorrectEnabled, forKey: .autocorrectEnabled)
+        try c.encode(disableAcceptKeyDefault, forKey: .disableAcceptKeyDefault)
     }
 }
 

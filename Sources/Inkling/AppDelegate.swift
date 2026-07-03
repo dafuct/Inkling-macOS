@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         memory.decay()   // fade + bound once per launch
 
         recorder.onWord = { [weak self] word, context in
-            guard let self, self.settings.state.global.learningEnabled else { return }
+            guard let self, self.settings.state.global.collectInputs else { return }
             guard !FocusContextProvider.isSecureFieldFocused() else { return }
             self.memory.learn(word: word, previous: context)
             self.memoryStore.scheduleSave()
@@ -123,7 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pause = NSMenuItem(
             title: "Pause learning", action: #selector(toggleLearning), keyEquivalent: "")
         pause.target = self
-        pause.state = settings.state.global.learningEnabled ? .off : .on
+        pause.state = settings.state.global.collectInputs ? .off : .on
         menu.addItem(pause)
         let clear = NSMenuItem(
             title: "Clear learned data", action: #selector(clearLearned), keyEquivalent: "")
@@ -155,8 +155,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleLearning() {
-        settings.state.global.learningEnabled.toggle()
-        NSLog("Inkling: learningEnabled=\(settings.state.global.learningEnabled)")
+        settings.state.global.collectInputs.toggle()
+        NSLog("Inkling: collectInputs=\(settings.state.global.collectInputs)")
         rebuildMenu()
     }
 

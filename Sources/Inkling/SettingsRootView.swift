@@ -89,7 +89,7 @@ struct GeneralPane: View {
                 }
             }
             Section("Learning") {
-                Toggle("Learn from my typing", isOn: $store.state.global.learningEnabled)
+                Toggle("Learn from my typing", isOn: $store.state.global.collectInputs)
                 Text("Feeds the on-device personal memory. Pausing keeps existing data.")
                     .font(.caption).foregroundStyle(.secondary)
             }
