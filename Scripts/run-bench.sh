@@ -6,12 +6,12 @@
 # is found at runtime.
 #
 # Usage: Scripts/run-bench.sh [model-dir]
-#   default model-dir: models/Qwen2.5-1.5B-Instruct-4bit
+#   default model-dir: models/gemma-4-e4b-it-4bit
 # One-time prereq: the Metal Toolchain (xcodebuild -downloadComponent MetalToolchain).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-MODEL="${1:-models/Qwen2.5-1.5B-Instruct-4bit}"
+MODEL="${1:-models/gemma-4-e4b-it-4bit}"
 
 xcodebuild -scheme InklingBench -destination 'platform=macOS' \
   -skipMacroValidation -configuration Debug -derivedDataPath .xcbuild build

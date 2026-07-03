@@ -30,10 +30,18 @@ if CommandLine.arguments[1] == "compare" {
     exit(0)
 }
 
+if CommandLine.arguments[1] == "rawdump" {
+    let dir = CommandLine.arguments.count > 2
+        ? URL(filePath: CommandLine.arguments[2])
+        : URL(filePath: "models/gemma-4-e4b-it-4bit")
+    try await runRawDump(modelDir: dir)
+    exit(0)
+}
+
 if CommandLine.arguments[1] == "sweep" {
     let dir = CommandLine.arguments.count > 2
         ? URL(filePath: CommandLine.arguments[2])
-        : URL(filePath: "models/Qwen2.5-3B-Instruct-4bit")
+        : URL(filePath: "models/gemma-4-e4b-it-4bit")
     try await runEagerSweep(modelDir: dir)
     exit(0)
 }

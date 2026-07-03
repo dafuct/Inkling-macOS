@@ -59,6 +59,16 @@ enum TechConversationSuite {
         // --- commit-message register ---
         "fix: suppress new-word suggestions while mid-",
         "refactor: extract the gated decode loop into a shared",
+        // --- Ukrainian / code-switching (the user's real Slack register) ---
+        "привіт, я подивився твій PR, загалом виглядає добре, але треба ще",
+        "давай синкнемось завтра зранку щодо релізу, бо є кілька",
+        "це не блокер, просто додаткова робота яку треба буде зробити щоб",
+        "подивись будь ласка логи в консолі, там повторюється помилка про",
+        "btw я пофіксив той race condition в event tap, можеш глянути чи",
+        // --- long Slack-style mid-thought (context-rich; the old penalty made
+        //     these WORSE with more context — they must now get BETTER) ---
+        "The P0 publisher list isn't final yet, we're waiting on the PM to confirm which accounts are in scope, but in the meantime I'll start wiring up the report generation so that once the list lands we can",
+        "quick update on the migration: staging is done, all the checksums match, and the only remaining piece is the cron job that refreshes the materialized views, which I want to test once more before",
         // --- adversarial: keep permanently so tuning always checks loops ---
         "the the the the the",
         "Look at this Look Look at this Look Look",

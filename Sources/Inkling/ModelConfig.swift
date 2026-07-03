@@ -20,77 +20,49 @@ enum ModelConfig {
         }
         return URL(filePath: "/Users/makar/dev/own-cotypist/models")
     }()
-    /// Fallback model when none is selected (best quality).
-    static let defaultModelName = "Qwen2.5-3B-Instruct-4bit"
+    /// Fallback model when none is selected (best quality; the same family
+    /// Cotypist runs).
+    static let defaultModelName = "gemma-4-e4b-it-4bit"
 
     static func directory(for name: String) -> URL {
         modelsRoot.appendingPathComponent(name)
     }
-    /// The currently selected model name (persisted), or the default.
-    static var currentModelName: String { Settings.selectedModel ?? defaultModelName }
+    /// The currently selected model name (persisted), or the default — degraded
+    /// to the first installed model when the preferred one isn't on disk (a DMG
+    /// bundling a different model than the code default, or a deleted model), so
+    /// a stale name can never leave the app silently suggestion-less.
+    static var currentModelName: String {
+        let preferred = Settings.selectedModel ?? defaultModelName
+        let installed = ModelCatalog.availableModels(in: modelsRoot)
+        if installed.contains(preferred) || installed.isEmpty { return preferred }
+        return installed[0]
+    }
     /// Absolute path to the selected model directory.
     static var modelDirectory: URL { directory(for: currentModelName) }
 
-    // Backstop on generation length. Confidence gating is the real stopper now,
-    // so this is a safety ceiling, not the typical suggestion length.
-    static let maxTokens = 24
-    static let promptMaxChars = 400
+    /// Fixed decode budget. Where a suggestion actually STOPS is decided
+    /// post-hoc by PhraseTrimmer; 40 tokens covers a half-sentence even in
+    /// Ukrainian (~2-3.5 tokens per Cyrillic word).
+    static let maxTokens = 40
+    /// Raw-continuation context: the document tail fed to the model verbatim.
+    /// Cheap in tokens (no chat template or few-shot overhead), so generous.
+    static let promptMaxChars = 1500
     /// Idle time after the last keystroke before querying the LLM. Low for a
     /// snappy, eager feel — the suggestion chases the cursor instead of lagging.
     static let suggestionDebounceSeconds: Double = 0.09
 
-    /// Eager gate (Cotypist-style: almost always show the model's best guess).
-    /// firstTokenMinProb/minProb are LOW so suggestions surface on nearly every
-    /// pause; `dominance` (1.5) + the repetition penalty below remain the GARBAGE
-    /// FLOOR — coin-flip and prefix-echo/loop output flatten the distribution so
-    /// no token dominates, and dominance rejects it. These are the documented
-    /// default values; refine them with `InklingBench sweep` (eager-gate sweep on
-    /// the technical-conversation suite) once the Metal toolchain is available.
-    static let confidenceThresholds = ConfidenceThresholds(
-        firstTokenMinProb: 0.10, minProb: 0.10, dominance: 1.5)
+    /// Online stops are CATASTROPHIC-only (a sub-2% token means the trajectory
+    /// fell apart); quality decisions belong to the trimmer, which sees the
+    /// whole trajectory. Dominance 1.0 disables the per-token branch-point gate
+    /// that used to cut suggestions to 1-2 words.
+    static let onlineFloor = ConfidenceThresholds(
+        firstTokenMinProb: 0.02, minProb: 0.02, dominance: 1.0)
 
-    /// Repetition penalty for decoding. Greedy decoding loops on odd/repetitive
-    /// input by echoing the prefix — and those echoed tokens are HIGH-confidence,
-    /// so the gate can't stop them. The penalty down-weights tokens already in the
-    /// recent context (window = repetitionContextSize), breaking the loop at the
-    /// source. 1.0 disables it.
-    static let repetitionPenalty: Float = 1.3
-    static let repetitionContextSize = 40
-
-    /// Role instruction: behave as a completion engine, not a chat assistant.
-    static let baseSystemInstruction =
-        "You are an inline text autocomplete. Output only the text that comes next. If "
-        + "the text stops in the middle of a word, finish that exact word first, then "
-        + "continue naturally. Never restart the sentence, never greet, never explain, "
-        + "never use quotes, and never repeat the user's text."
-
-    /// The system instruction, optionally appended with a short list of the
-    /// writer's frequent words so the model leans toward their vocabulary.
-    static func systemInstruction(personalization: String) -> String {
-        guard !personalization.isEmpty else { return baseSystemInstruction }
-        return baseSystemInstruction
-            + " The writer frequently uses these words: \(personalization)."
-    }
-
-    /// Few-shot user message that strongly biases the instruct model toward
-    /// continuation (incl. partial-word completion) instead of chatting. The
-    /// "hello, ho" example specifically breaks the assistant-greeting reflex.
-    static func userMessage(for text: String) -> String {
-        """
-        Continue the text. Output only the next few words.
-
-        Text: The quick brown fox
-        Continuation: jumps over the lazy dog
-        Text: I was wondering if you could hel
-        Continuation: help me with something
-        Text: I am fine thank you, I have a sugg
-        Continuation: suggestion for you
-        Text: hello, ho
-        Continuation: how are you doing
-        Text: Let me know if you have any
-        Continuation: questions
-        Text: \(text)
-        Continuation:
-        """
-    }
+    /// Post-hoc trimming knobs. `firstTokenMinProb` is the show/no-show
+    /// frequency dial (raw, unpenalized distribution — do not compare with the
+    /// old penalized 0.10 gate); `lengthBonus` is effectively the "suggestion
+    /// length" preference; `minMeanLogProb` is the garbage floor
+    /// (-1.2 ≈ mean prob 0.30). Refine with `InklingBench compare/sweep`.
+    static let trim = TrimConfig(
+        firstTokenMinProb: 0.15, lengthBonus: 0.04, minMeanLogProb: -1.2)
 }

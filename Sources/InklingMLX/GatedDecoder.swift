@@ -22,6 +22,15 @@ public struct GatedDecodeResult: Sendable {
     public let acceptedCount: Int
     /// Decoded text of just the accepted tokens (raw — caller still cleans it).
     public let text: String
+    /// `prefixes[i]` is the decoded text of tokens 0...i — cumulative, so
+    /// multi-token UTF-8 sequences are always whole. Input to PhraseTrimmer.
+    public let prefixes: [String]
+    /// Generation stopped because the model closed the text (EOS or newline),
+    /// not because the budget or a floor cut it off.
+    public let endedNaturally: Bool
+    /// Degenerate repetition was detected (only when `stopOnLoop`); the caller
+    /// should suppress the suggestion.
+    public let loopDetected: Bool
 }
 
 /// Greedy decoding with confidence gating, shared by the app and the harness.
@@ -47,14 +56,23 @@ public enum GatedDecoder {
         stopEarly: Bool,
         repetitionPenalty: Float,
         repetitionContextSize: Int,
-        rawPrompt: String? = nil
+        rawPrompt: String? = nil,
+        stopAtNewline: Bool = false,
+        stopOnLoop: Bool = false
     ) async throws -> GatedDecodeResult {
         try await container.perform { ctx in
             let lmInput: LMInput
             if let rawPrompt {
-                // Base model: tokenize the text as-is and continue it. BOS is
-                // added (addSpecialTokens default), matching a real sequence start.
-                let ids = ctx.tokenizer.encode(text: rawPrompt)
+                // Raw continuation: tokenize the text as-is and continue it.
+                // encode() does NOT add special tokens here, and BOS-trained
+                // models (Gemma!) degenerate into pathological echo-loops with
+                // p≈1.0 when the sequence doesn't start with it — so prepend
+                // the model's BOS explicitly when the vocabulary has one.
+                var ids = ctx.tokenizer.encode(text: rawPrompt)
+                if let bos = ["<bos>", "<s>"].compactMap(ctx.tokenizer.convertTokenToId).first,
+                   ids.first != bos {
+                    ids.insert(bos, at: 0)
+                }
                 lmInput = LMInput(tokens: MLXArray(ids))
             } else {
                 let input = UserInput(chat: [
@@ -81,13 +99,51 @@ public enum GatedDecoder {
                 input: lmInput, model: ctx.model, cache: nil,
                 processor: recorder, sampler: sampler, maxTokens: maxTokens)
 
+            // Turn-end markers are hard stops alongside EOS: an instruct model
+            // continuing raw text may close its "turn" and then degenerate —
+            // everything after the marker is garbage by construction. Matched
+            // both by probed id and by decoded piece (vocabularies name these
+            // differently: gemma-4's id 106 renders as "<turn|>").
+            var stopTokens = Set<Int>()
+            if let eos = ctx.tokenizer.eosTokenId { stopTokens.insert(eos) }
+            for marker in ["<end_of_turn>", "<turn|>", "<|im_end|>", "<|endoftext|>"] {
+                if let id = ctx.tokenizer.convertTokenToId(marker) { stopTokens.insert(id) }
+            }
+            let stopPieces: Set<String> = [
+                "<end_of_turn>", "<start_of_turn>", "<turn|>",
+                "<|im_end|>", "<|im_start|>", "<|endoftext|>",
+            ]
+
             var tokens: [Int] = []
+            var prefixes: [String] = []
+            var endedNaturally = false
+            var loopDetected = false
             for _ in 0..<maxTokens {
                 if Task.isCancelled { break }
-                guard let tok = iterator.next() else { break }
-                if let eos = ctx.tokenizer.eosTokenId, tok == eos { break }
+                guard let tok = iterator.next() else { endedNaturally = true; break }
+                if stopTokens.contains(tok)
+                    || stopPieces.contains(ctx.tokenizer.decode(tokenIds: [tok])) {
+                    endedNaturally = true
+                    break
+                }
                 let idx = tokens.count                 // index this token occupies
                 tokens.append(tok)
+                let prefixText = ctx.tokenizer.decode(tokenIds: tokens)
+                if stopAtNewline {
+                    let prior = prefixes.last ?? ""
+                    let delta = prefixText.count >= prior.count
+                        ? String(prefixText.dropFirst(prior.count)) : prefixText
+                    if delta.contains(where: { $0 == "\n" || $0 == "\r" }) {
+                        tokens.removeLast()            // the newline token itself is never shown
+                        endedNaturally = true
+                        break
+                    }
+                }
+                prefixes.append(prefixText)
+                if stopOnLoop, LoopDetector.hasLoop(tokens) {
+                    loopDetected = true
+                    break
+                }
                 let p = recorder.recorded[idx]         // aligned: produced this token
                 if stopEarly && !ConfidenceGate.accepts(
                     top1: p.top1, top2: p.top2, isFirst: idx == 0, thresholds: thresholds) {
@@ -105,7 +161,9 @@ public enum GatedDecoder {
                     token: t, piece: ctx.tokenizer.decode(tokenIds: [t]),
                     top1: aligned[i].top1, top2: aligned[i].top2)
             }
-            return GatedDecodeResult(probs: dump, acceptedCount: accepted, text: text)
+            return GatedDecodeResult(
+                probs: dump, acceptedCount: accepted, text: text,
+                prefixes: prefixes, endedNaturally: endedNaturally, loopDetected: loopDetected)
         }
     }
 }
