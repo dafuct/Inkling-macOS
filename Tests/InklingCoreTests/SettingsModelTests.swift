@@ -25,10 +25,19 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(decoded.global.collectInputs)
         XCTAssertTrue(decoded.global.storeWithoutAccepted)
         XCTAssertEqual(decoded.global.personalizeLevel, 1)
+        XCTAssertEqual(decoded.global.customInstructions, "")
+        XCTAssertFalse(decoded.global.instructionPreambleEnabled)
         XCTAssertFalse(decoded.global.midLineEnabled)
         XCTAssertTrue(decoded.global.autocorrectEnabled)
         XCTAssertFalse(decoded.global.disableAcceptKeyDefault)
         XCTAssertEqual(decoded.version, 1)
+    }
+
+    func test_decodingGlobalInstructions_roundTrips() throws {
+        let json = #"{"global":{"customInstructions":"Be terse.","instructionPreambleEnabled":true}}"#
+        let decoded = try JSONDecoder().decode(SettingsState.self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.global.customInstructions, "Be terse.")
+        XCTAssertTrue(decoded.global.instructionPreambleEnabled)
     }
 
     func test_decodingLegacyLearningEnabled_mapsToCollectInputs() throws {
