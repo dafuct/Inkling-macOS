@@ -62,6 +62,11 @@ struct AppSettingsPane: View {
             }
         }
         .navigationTitle("App Settings")
+        .onChange(of: search) {
+            if let sel = selectedBundleID, !apps.contains(where: { $0.bundleID == sel }) {
+                selectedBundleID = nil
+            }
+        }
     }
 
     private func addApp() {

@@ -40,6 +40,15 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertEqual(overrides?.customInstructions, "")
     }
 
+    func test_decodingPartialUsageEntry_fillsDefaults() throws {
+        let json = #"{"appUsage":{"com.example":{"suggestionsShown":7}}}"#
+        let decoded = try JSONDecoder().decode(SettingsState.self, from: Data(json.utf8))
+        let usage = decoded.appUsage["com.example"]
+        XCTAssertEqual(usage?.suggestionsShown, 7)
+        XCTAssertEqual(usage?.displayName, "")
+        XCTAssertEqual(usage?.lastSeen, Date(timeIntervalSince1970: 0))
+    }
+
     func test_overrideChoice_resolvesAgainstDefault() {
         XCTAssertTrue(OverrideChoice.useDefault.resolved(default: true))
         XCTAssertFalse(OverrideChoice.useDefault.resolved(default: false))

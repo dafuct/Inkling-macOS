@@ -63,6 +63,13 @@ public struct AppUsageInfo: Codable, Equatable, Sendable {
         self.suggestionsShown = suggestionsShown
         self.lastSeen = lastSeen
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        displayName = try c.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        suggestionsShown = try c.decodeIfPresent(Int.self, forKey: .suggestionsShown) ?? 0
+        lastSeen = try c.decodeIfPresent(Date.self, forKey: .lastSeen) ?? Date(timeIntervalSince1970: 0)
+    }
 }
 
 /// Global switches and the defaults the per-app tri-states resolve against.
@@ -71,6 +78,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
     public var selectedModel: String?
     public var learningEnabled: Bool
     public var midLineEnabled: Bool          // consumed by subproject E
+    // TODO(subproject F): defaults true but no autocorrect engine exists yet — revisit so it doesn't silently enable on first ship.
     public var autocorrectEnabled: Bool      // consumed by subproject F
     public var disableAcceptKeyDefault: Bool
 
