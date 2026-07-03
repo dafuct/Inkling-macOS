@@ -34,6 +34,13 @@ final class SettingsStore {
             state = decoded
         } else {
             state = Self.migrateFromUserDefaults()
+            // Assigning `state` here happens inside init, so the `didSet`
+            // observer does NOT fire and scheduleSave() is never triggered.
+            // migrateFromUserDefaults() already deleted the legacy
+            // UserDefaults keys, so if this launch exits before some other
+            // mutation schedules a save, the migrated settings would be lost
+            // permanently. Persist them to disk now, in this launch.
+            saveNow()
         }
     }
 
@@ -53,6 +60,8 @@ final class SettingsStore {
 
     private func scheduleSave() {
         saveTimer?.invalidate()
+        // 2s debounce, intentionally shorter than MemoryStore's 5s: settings
+        // are low-volume writes and more latency-sensitive to persist.
         saveTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
             self?.saveNow()
         }
