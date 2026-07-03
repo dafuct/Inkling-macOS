@@ -9,7 +9,7 @@ final class StatsSeriesTests: XCTestCase {
         return c
     }()
     // 2026-06-15 12:00:00 UTC
-    private let now = Date(timeIntervalSince1970: 1_781_784_000)
+    private let now = Date(timeIntervalSince1970: 1_781_524_800)
 
     private func event(_ iso: String, words: Int = 1, chars: Int = 5, first: Bool = true) -> CompletionEvent {
         let f = ISO8601DateFormatter(); f.timeZone = TimeZone(identifier: "UTC")!
