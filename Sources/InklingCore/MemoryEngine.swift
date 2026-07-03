@@ -84,4 +84,20 @@ public enum MemoryEngine {
         let runnerUp = cands.dropFirst().first?.count ?? 0
         return runnerUp == 0 || top.count >= gates.dominanceRatio * runnerUp
     }
+
+    /// Highest "personalize word choice" slider level (0 = off).
+    public static let maxPersonalizationLevel = 4
+
+    /// Slider level → memory-tier gates. Level 0 disables the memory tier
+    /// (nil → caller shows the LLM only). Higher levels lower minSightings and
+    /// dominanceRatio so more of the user's own vocabulary surfaces.
+    public static func gates(forLevel level: Int) -> Gates? {
+        let clamped = max(0, min(level, maxPersonalizationLevel))
+        guard clamped > 0 else { return nil }
+        let i = clamped - 1
+        let minSightings = [3.0, 2.0, 2.0, 1.0][i]
+        let dominance = [2.0, 1.7, 1.4, 1.1][i]
+        return Gates(minSightings: minSightings, minPrefixLength: 2,
+                     dominanceRatio: dominance, maxChainWords: 3)
+    }
 }
