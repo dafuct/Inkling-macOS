@@ -40,10 +40,7 @@ struct SettingsRootView: View {
             case .general:
                 GeneralPane()
             case .appSettings:
-                // Replaced by the real AppSettingsPane in the next task.
-                PlaceholderPane(
-                    title: "App Settings",
-                    note: "Per-app overrides land in the next task of this plan.")
+                AppSettingsPane()
             case .personalization:
                 PlaceholderPane(
                     title: "Personalization",
