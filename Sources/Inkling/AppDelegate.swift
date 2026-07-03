@@ -27,6 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// True while the user is accepting the current suggestion word-by-word; the
     /// LLM result must not swap the ghost text out from under them.
     private var accepting = false
+    private let statsStore = CompletionEventStore.shared
+    /// True when the next accept is the FIRST chunk of the currently-shown
+    /// suggestion — set on every fresh show, consumed on the first accept.
+    private var firstChunkPending = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -109,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.saveNow()
         inputCollector.endCurrentSession()
         inputStore.saveNow()
+        statsStore.saveNow()
     }
 
     private func setupMenuBar() {
@@ -250,6 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         settings.recordSuggestionShown(bundleID: FrontmostApp.bundleID, appName: FrontmostApp.name)
+        firstChunkPending = true
         suggestionSource = .memory
         memoryExactRepeat = hit.isExactRepeat
         currentSuggestion = suffix
@@ -267,6 +273,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         suggestionSource = .none
         memoryExactRepeat = false
         accepting = false
+        firstChunkPending = false
     }
 
     private func refreshSuggestion() {
@@ -338,6 +345,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         self.settings.recordSuggestionShown(
                             bundleID: FrontmostApp.bundleID, appName: FrontmostApp.name)
                     }
+                    self.firstChunkPending = true
                     self.suggestionSource = .llm
                     self.memoryExactRepeat = false
                     self.currentSuggestion = suggestion
@@ -363,6 +371,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         currentSuggestion = ""
         TextInserter.insert(split.chunk)
         NSLog("Inkling: accepted \"\(split.chunk)\"")
+        statsStore.record(CompletionEvent(
+            timestamp: Date(), appBundleID: FrontmostApp.bundleID,
+            words: 1, chars: split.chunk.count, isFirstChunk: firstChunkPending))
+        firstChunkPending = false
 
         let remainder = split.remainder
         // Last word accepted. Intentionally leave `accepting` set: a late LLM

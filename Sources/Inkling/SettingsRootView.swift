@@ -52,9 +52,7 @@ struct SettingsRootView: View {
                     title: "Labs",
                     note: "Mid-line completions (subproject E) and alternative suggestions (subproject H).")
             case .statistics:
-                PlaceholderPane(
-                    title: "Statistics",
-                    note: "Completion statistics arrive with subproject C.")
+                StatisticsPane()
             case .about:
                 AboutPane()
             }
