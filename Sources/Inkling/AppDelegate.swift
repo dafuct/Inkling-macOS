@@ -182,10 +182,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func clearLearned() {
+        inputCollector.discardCurrentSession()   // in-flight text is part of what's being erased
         inputStore.deleteAll()   // canonical typing history
         memoryStore.clear()      // derived model + cache
         recorder.reset()
-        inputCollector.endCurrentSession()
         NSLog("Inkling: cleared typing history + learned data")
     }
 

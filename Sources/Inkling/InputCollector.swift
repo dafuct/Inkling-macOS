@@ -64,6 +64,16 @@ final class InputCollector {
             hadAcceptedCompletion: session.hadAcceptedCompletion))
     }
 
+    /// Abandon the current session WITHOUT storing it — used by Delete All,
+    /// where the in-flight text is part of what the user asked to erase.
+    func discardCurrentSession() {
+        idleTimer?.invalidate()
+        idleTimer = nil
+        currentElement = nil
+        currentBundleID = nil
+        session.reset()
+    }
+
     private func restartIdleTimer() {
         idleTimer?.invalidate()
         idleTimer = Timer.scheduledTimer(withTimeInterval: idleSeconds, repeats: false) { [weak self] _ in
