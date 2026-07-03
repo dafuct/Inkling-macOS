@@ -13,15 +13,26 @@ public struct TrimConfig: Equatable, Sendable {
     /// Reject the whole suggestion when the best candidate's mean log-prob is
     /// below this floor (log scale; -1.2 ≈ mean prob 0.30).
     public var minMeanLogProb: Double
+    /// Hard ceiling on how many tokens a shown suggestion may keep — the
+    /// "don't paint half a paragraph" backstop the length bonus alone can't
+    /// guarantee when every token is confident.
+    public var maxShownTokens: Int
+    /// Flat score bonus for candidates ending in phrase punctuation, so a
+    /// clean "…headache." beats a capped mid-phrase stub like "…for a".
+    public var punctuationBonus: Double
 
     public init(
         firstTokenMinProb: Double = 0.15,
         lengthBonus: Double = 0.04,
-        minMeanLogProb: Double = -1.2
+        minMeanLogProb: Double = -1.2,
+        maxShownTokens: Int = 16,
+        punctuationBonus: Double = 0.25
     ) {
         self.firstTokenMinProb = firstTokenMinProb
         self.lengthBonus = lengthBonus
         self.minMeanLogProb = minMeanLogProb
+        self.maxShownTokens = maxShownTokens
+        self.punctuationBonus = punctuationBonus
     }
 }
 
@@ -62,7 +73,8 @@ public enum PhraseTrimmer {
         // Candidate cut points: after token i, when the cut cannot split a word.
         var candidates: [Int] = []
         let n = prefixes.count
-        for i in 0..<n {
+        let limit = min(n, max(1, config.maxShownTokens))
+        for i in 0..<limit {
             if i + 1 < n {
                 let delta = String(prefixes[i + 1].dropFirst(prefixes[i].count))
                 if let f = delta.first, f.isWhitespace || f.isPunctuation {
@@ -79,7 +91,11 @@ public enum PhraseTrimmer {
         guard !candidates.isEmpty else { return "" }
 
         func meanLog(_ i: Int) -> Double { cumLog[i] / Double(i + 1) }
-        func score(_ i: Int) -> Double { meanLog(i) + config.lengthBonus * Double(i + 1) }
+        func score(_ i: Int) -> Double {
+            var s = meanLog(i) + config.lengthBonus * Double(i + 1)
+            if let l = prefixes[i].last, ".!?…,;:".contains(l) { s += config.punctuationBonus }
+            return s
+        }
         let best = candidates.max { score($0) < score($1) }!
         guard meanLog(best) >= config.minMeanLogProb else { return "" }
 

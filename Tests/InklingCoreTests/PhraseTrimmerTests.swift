@@ -83,4 +83,17 @@ final class PhraseTrimmerTests: XCTestCase {
     func test_emptyInput_showsNothing() {
         XCTAssertEqual(PhraseTrimmer.trim(prefixes: [], probs: [], endedNaturally: true), "")
     }
+
+    func test_maxShownTokens_capsLength_evenWhenAllConfident() {
+        // 24 confident single-word tokens; cap 4 -> at most 4 tokens survive.
+        let pieces = (0..<24).map { " w\($0)" }
+        let p = prefixes(pieces)
+        let probs = Array(repeating: 0.9, count: 24)
+        let out = PhraseTrimmer.trim(
+            prefixes: p, probs: probs, endedNaturally: false,
+            config: TrimConfig(
+                firstTokenMinProb: 0.1, lengthBonus: 0.5, minMeanLogProb: -2.0,
+                maxShownTokens: 4))
+        XCTAssertEqual(out, " w0 w1 w2 w3")
+    }
 }

@@ -28,7 +28,8 @@ func runComparison(modelDirs: [URL]) async throws {
     // raw-new constants — keep in sync with the app's ModelConfig.
     let newFloor = ConfidenceThresholds(firstTokenMinProb: 0.02, minProb: 0.02, dominance: 1.0)
     let newMaxTokens = 40
-    let newTrim = TrimConfig(firstTokenMinProb: 0.15, lengthBonus: 0.04, minMeanLogProb: -1.2)
+    let newTrim = TrimConfig(
+        firstTokenMinProb: 0.15, lengthBonus: 0.03, minMeanLogProb: -1.2, maxShownTokens: 16)
 
     struct Cell {
         let ttftMs: Int

@@ -39,20 +39,17 @@ actor MLXEngine: SuggestionEngine {
         let word = context.currentWord
         let completing = !word.isEmpty && !currentWordIsComplete
         do {
-            // Pass 1: direct continuation of the full prefix. For mid-word
-            // Cyrillic/BPE-friendly fragments the model glues correctly on its
-            // own ("доро" → "бити це."), and that's the cheap common case.
-            let direct = try await decodeAndTrim(rawPrompt: promptText)
-            if Task.isCancelled { return "" }
-            if !completing { return direct }
-            if let first = direct.first, first.isLetter || first.isNumber {
-                return direct   // glued word-completion — accept as-is
+            guard completing else {
+                let direct = try await decodeAndTrim(rawPrompt: promptText)
+                return Task.isCancelled ? "" : direct
             }
-            // Pass 2 (incomplete word, model started a NEW word instead —
-            // "impl" → " Trait…"): back up to the word boundary so the model
+            // Mid-word on a non-dictionary fragment: NEVER glue a direct
+            // continuation — BPE seams duplicate letters ("implem"+"ement" →
+            // "implemement"). Back up to the word boundary so the model
             // regenerates the word WHOLE, and show only the remainder when it
             // prefix-matches what the user typed. A mid-word suggestion that
-            // fights the user's word is worse than silence.
+            // fights the user's word is worse than silence (and the instant
+            // memory tier already covers learned-word completions).
             let backupPrompt = MidWordCompletion.decodePrompt(prefix: promptText, currentWord: word)
             let regenerated = try await decodeAndTrim(rawPrompt: backupPrompt)
             if Task.isCancelled { return "" }

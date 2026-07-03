@@ -62,7 +62,10 @@ enum ModelConfig {
     /// frequency dial (raw, unpenalized distribution — do not compare with the
     /// old penalized 0.10 gate); `lengthBonus` is effectively the "suggestion
     /// length" preference; `minMeanLogProb` is the garbage floor
-    /// (-1.2 ≈ mean prob 0.30). Refine with `InklingBench compare/sweep`.
+    /// (-1.2 ≈ mean prob 0.30); `maxShownTokens` caps ghost-text length (user
+    /// feedback 2026-07-03: full-budget suggestions read as a wall of text).
+    /// Refine with `InklingBench compare/sweep`.
     static let trim = TrimConfig(
-        firstTokenMinProb: 0.15, lengthBonus: 0.04, minMeanLogProb: -1.2)
+        firstTokenMinProb: 0.15, lengthBonus: 0.03, minMeanLogProb: -1.2,
+        maxShownTokens: 16)
 }
