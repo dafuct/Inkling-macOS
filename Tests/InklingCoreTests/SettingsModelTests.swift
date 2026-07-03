@@ -43,6 +43,13 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(decoded.global.collectInputs)
     }
 
+    func test_encoding_neverWritesLegacyLearningEnabledKey() throws {
+        let data = try JSONEncoder().encode(SettingsState())
+        let json = String(decoding: data, as: UTF8.self)
+        XCTAssertFalse(json.contains("learningEnabled"))
+        XCTAssertTrue(json.contains("collectInputs"))
+    }
+
     func test_decodingPartialOverrides_fillsDefaults() throws {
         let json = #"{"perApp":{"com.example":{"completions":"off"}}}"#
         let decoded = try JSONDecoder().decode(SettingsState.self, from: Data(json.utf8))
