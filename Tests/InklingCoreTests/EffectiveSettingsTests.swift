@@ -75,17 +75,34 @@ final class EffectiveSettingsTests: XCTestCase {
 
     // MARK: custom instructions / compatibility
 
-    func test_customInstructions_blankIsNil() {
+    func test_customInstructions_bothBlank_isNil() {
         let s = state(overrides: ["com.example": AppOverrides(customInstructions: "   \n")])
         XCTAssertNil(EffectiveSettings.customInstructions(state: s, bundleID: "com.example"))
         XCTAssertNil(EffectiveSettings.customInstructions(state: s, bundleID: nil))
         XCTAssertNil(EffectiveSettings.customInstructions(state: s, bundleID: "com.other"))
     }
 
-    func test_customInstructions_trimmedTextReturned() {
+    func test_customInstructions_perAppOnly() {
         let s = state(overrides: ["com.example": AppOverrides(customInstructions: " Be brief. ")])
         XCTAssertEqual(
             EffectiveSettings.customInstructions(state: s, bundleID: "com.example"), "Be brief.")
+    }
+
+    func test_customInstructions_globalOnly() {
+        var s = state()
+        s.global.customInstructions = " Write formally. "
+        XCTAssertEqual(
+            EffectiveSettings.customInstructions(state: s, bundleID: "com.other"), "Write formally.")
+        XCTAssertEqual(
+            EffectiveSettings.customInstructions(state: s, bundleID: nil), "Write formally.")
+    }
+
+    func test_customInstructions_globalAndPerApp_combinedInOrder() {
+        var s = state(overrides: ["com.example": AppOverrides(customInstructions: "Use bullet points.")])
+        s.global.customInstructions = "Write formally."
+        XCTAssertEqual(
+            EffectiveSettings.customInstructions(state: s, bundleID: "com.example"),
+            "Write formally.\n\nUse bullet points.")
     }
 
     func test_improveCompatibility_defaultsFalse() {

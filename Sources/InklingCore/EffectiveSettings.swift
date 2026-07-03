@@ -25,12 +25,20 @@ public enum EffectiveSettings {
         choice(state, bundleID, \.autocorrect).resolved(default: state.global.autocorrectEnabled)
     }
 
-    /// Per-app instructions; nil when unset or blank. (Consumer: subproject D.)
+    /// Combined instructions: the global baseline plus the per-app supplement
+    /// (blank-line separated). nil when both are empty. (Consumer: the engine
+    /// wiring, subproject D.)
     public static func customInstructions(state: SettingsState, bundleID: String?) -> String? {
-        guard let bundleID,
-              let raw = state.perApp[bundleID]?.customInstructions else { return nil }
-        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? nil : text
+        let global = state.global.customInstructions
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let perApp = (bundleID.flatMap { state.perApp[$0]?.customInstructions } ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        switch (global.isEmpty, perApp.isEmpty) {
+        case (true, true): return nil
+        case (false, true): return global
+        case (true, false): return perApp
+        case (false, false): return global + "\n\n" + perApp
+        }
     }
 
     public static func improveCompatibility(state: SettingsState, bundleID: String?) -> Bool {
