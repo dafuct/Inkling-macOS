@@ -26,4 +26,14 @@ enum WordCompleteness {
         guard word.count >= 2 else { return false }
         return systemWords.contains(word.lowercased()) || memory.knows(word: word)
     }
+
+    /// Dictionary-only completeness, for the LLM mid-word backup decision.
+    /// Memory jargon must NOT count here: the user pausing on "impl" wants it
+    /// COMPLETED ("implement"), even though "impl" is in their learned vocab —
+    /// and if the model restates the jargon word whole, the backup path still
+    /// yields the normal continuation, so nothing is lost for real jargon.
+    static func isDictionaryWord(_ word: String) -> Bool {
+        guard word.count >= 2 else { return false }
+        return systemWords.contains(word.lowercased())
+    }
 }

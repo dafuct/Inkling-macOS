@@ -237,10 +237,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let font = readout.font
-        // Whether the word under the caret is a complete word (continuation is a
-        // new word -> space) or a partial word being typed (continuation completes
-        // it -> glue). Computed here on the main actor where `memory` lives.
-        let currentWordIsComplete = WordCompleteness.isComplete(context.currentWord, memory: memory)
+        // Whether the word under the caret is a complete DICTIONARY word. The
+        // raw-continuation engine uses this to decide mid-word backup (finish
+        // the word first); deliberately dictionary-only — memory jargon like
+        // "impl" must still be completed, not continued past.
+        let currentWordIsComplete = WordCompleteness.isDictionaryWord(context.currentWord)
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }

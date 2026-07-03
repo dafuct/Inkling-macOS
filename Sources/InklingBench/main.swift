@@ -34,7 +34,8 @@ if CommandLine.arguments[1] == "rawdump" {
     let dir = CommandLine.arguments.count > 2
         ? URL(filePath: CommandLine.arguments[2])
         : URL(filePath: "models/gemma-4-e4b-it-4bit")
-    try await runRawDump(modelDir: dir)
+    let adhoc = Array(CommandLine.arguments.dropFirst(3))
+    try await runRawDump(modelDir: dir, adhocPrompts: adhoc)
     exit(0)
 }
 

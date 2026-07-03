@@ -11,12 +11,14 @@ import Tokenizers
 /// token piece with its top-1/top-2 probability plus the prompt's leading
 /// token ids (BOS check). Diagnoses why the raw arm loops/goes silent without
 /// any gating in the way.
-func runRawDump(modelDir: URL) async throws {
+func runRawDump(modelDir: URL, adhocPrompts: [String] = []) async throws {
     let container = try await loadModelContainer(
         from: modelDir, using: #huggingFaceTokenizerLoader())
 
     let picks = [11, 17]   // 0-based: mid-identifier + the UA prompt that leaks turn markers
-    let prompts = picks.map { TechConversationSuite.prompts[$0] }
+    let prompts = adhocPrompts.isEmpty
+        ? picks.map { TechConversationSuite.prompts[$0] }
+        : adhocPrompts
 
     // BOS check: what does encode() put at the head of the raw prompt?
     try await container.perform { ctx in

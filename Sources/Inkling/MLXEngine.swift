@@ -36,47 +36,62 @@ actor MLXEngine: SuggestionEngine {
     func suggestion(for context: InklingCore.TextContext, currentWordIsComplete: Bool) async -> String {
         let promptText = CompletionPrompt.prompt(for: context, maxChars: ModelConfig.promptMaxChars)
         guard promptText.count >= 2 else { return "" }
+        let word = context.currentWord
+        let completing = !word.isEmpty && !currentWordIsComplete
         do {
-            let container = try await loadedContainer()
-            let result = try await GatedDecoder.decode(
-                container: container,
-                systemInstruction: "",                  // unused on the raw path
-                userMessage: "",
-                thresholds: ModelConfig.onlineFloor,    // catastrophic floor only
-                maxTokens: ModelConfig.maxTokens,
-                stopEarly: true,
-                repetitionPenalty: 1.0,                 // trust the raw distribution
-                repetitionContextSize: 0,
-                rawPrompt: promptText,
-                stopAtNewline: true,
-                stopOnLoop: true)
+            // Pass 1: direct continuation of the full prefix. For mid-word
+            // Cyrillic/BPE-friendly fragments the model glues correctly on its
+            // own ("доро" → "бити це."), and that's the cheap common case.
+            let direct = try await decodeAndTrim(rawPrompt: promptText)
             if Task.isCancelled { return "" }
-            if result.loopDetected { return "" }
-            let trimmed = PhraseTrimmer.trim(
-                prefixes: result.prefixes,
-                probs: result.probs.map(\.top1),
-                endedNaturally: result.endedNaturally,
-                config: ModelConfig.trim)
-            guard !trimmed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                return ""
+            if !completing { return direct }
+            if let first = direct.first, first.isLetter || first.isNumber {
+                return direct   // glued word-completion — accept as-is
             }
-            // Raw framing rarely restates, but a rephrase-restart is still the
-            // one failure the probability signals can't see; content-word guard.
-            if SuggestionRepeatGuard.repeatsRecent(continuation: trimmed, recentText: promptText) {
-                return ""
-            }
-            // BPE boundary artifact: continuing mid-identifier ("loadModelContai")
-            // the tokenizer can only emit the word-tail as a fresh " ner" token.
-            // When the word under the caret is NOT a complete word, a leading
-            // space before a letter/digit means "finish the word" — glue it.
-            if !currentWordIsComplete, !context.currentWord.isEmpty, trimmed.first == " ",
-               let next = trimmed.dropFirst().first, next.isLetter || next.isNumber {
-                return String(trimmed.dropFirst())
-            }
-            return trimmed
+            // Pass 2 (incomplete word, model started a NEW word instead —
+            // "impl" → " Trait…"): back up to the word boundary so the model
+            // regenerates the word WHOLE, and show only the remainder when it
+            // prefix-matches what the user typed. A mid-word suggestion that
+            // fights the user's word is worse than silence.
+            let backupPrompt = MidWordCompletion.decodePrompt(prefix: promptText, currentWord: word)
+            let regenerated = try await decodeAndTrim(rawPrompt: backupPrompt)
+            if Task.isCancelled { return "" }
+            guard let remainder = MidWordCompletion.resolve(candidate: regenerated, currentWord: word)
+            else { return "" }
+            return remainder
         } catch {
             NSLog("Inkling: MLXEngine error: \(error)")
             return ""
         }
+    }
+
+    /// One raw decode + trim + guards; "" means nothing worth showing.
+    private func decodeAndTrim(rawPrompt: String) async throws -> String {
+        let container = try await loadedContainer()
+        let result = try await GatedDecoder.decode(
+            container: container,
+            systemInstruction: "",                  // unused on the raw path
+            userMessage: "",
+            thresholds: ModelConfig.onlineFloor,    // catastrophic floor only
+            maxTokens: ModelConfig.maxTokens,
+            stopEarly: true,
+            repetitionPenalty: 1.0,                 // trust the raw distribution
+            repetitionContextSize: 0,
+            rawPrompt: rawPrompt,
+            stopAtNewline: true,
+            stopOnLoop: true)
+        if result.loopDetected { return "" }
+        let trimmed = PhraseTrimmer.trim(
+            prefixes: result.prefixes,
+            probs: result.probs.map(\.top1),
+            endedNaturally: result.endedNaturally,
+            config: ModelConfig.trim)
+        guard !trimmed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+        // Raw framing rarely restates, but a rephrase-restart is still the one
+        // failure the probability signals can't see; content-word guard.
+        if SuggestionRepeatGuard.repeatsRecent(continuation: trimmed, recentText: rawPrompt) {
+            return ""
+        }
+        return trimmed
     }
 }
