@@ -3,6 +3,7 @@ import InklingCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTap = EventTapController()
+    private let settings = SettingsStore.shared
     private let overlay = OverlayWindow()
     private var engine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
     private let debouncer = Debouncer(delay: ModelConfig.suggestionDebounceSeconds)
@@ -39,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         memory.decay()   // fade + bound once per launch
 
         recorder.onWord = { [weak self] word, context in
-            guard let self, Settings.learningEnabled else { return }
+            guard let self, self.settings.state.global.learningEnabled else { return }
             guard !FocusContextProvider.isSecureFieldFocused() else { return }
             self.memory.learn(word: word, previous: context)
             self.memoryStore.scheduleSave()
@@ -74,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         memoryStore.saveNow()
+        settings.saveNow()
     }
 
     private func setupMenuBar() {
@@ -89,7 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let toggle = NSMenuItem(
             title: "Suggestions Enabled", action: #selector(toggleEnabled), keyEquivalent: "")
         toggle.target = self
-        toggle.state = Settings.enabled ? .on : .off
+        toggle.state = settings.state.global.enabled ? .on : .off
         menu.addItem(toggle)
 
         menu.addItem(.separator())
@@ -108,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pause = NSMenuItem(
             title: "Pause learning", action: #selector(toggleLearning), keyEquivalent: "")
         pause.target = self
-        pause.state = Settings.learningEnabled ? .off : .on
+        pause.state = settings.state.global.learningEnabled ? .off : .on
         menu.addItem(pause)
         let clear = NSMenuItem(
             title: "Clear learned data", action: #selector(clearLearned), keyEquivalent: "")
@@ -123,15 +125,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleEnabled() {
-        Settings.enabled.toggle()
-        if !Settings.enabled { dismiss() }
-        NSLog("Inkling: enabled=\(Settings.enabled)")
+        settings.state.global.enabled.toggle()
+        if !settings.state.global.enabled { dismiss() }
+        NSLog("Inkling: enabled=\(settings.state.global.enabled)")
         rebuildMenu()
     }
 
     @objc private func toggleLearning() {
-        Settings.learningEnabled.toggle()
-        NSLog("Inkling: learningEnabled=\(Settings.learningEnabled)")
+        settings.state.global.learningEnabled.toggle()
+        NSLog("Inkling: learningEnabled=\(settings.state.global.learningEnabled)")
         rebuildMenu()
     }
 
@@ -144,12 +146,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func selectModel(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String, name != ModelConfig.currentModelName
         else { return }
-        Settings.selectedModel = name
-        dismiss()
-        engine = MLXEngine(modelDirectory: ModelConfig.directory(for: name))
-        Task { await engine.preload() }
-        NSLog("Inkling: switched model to \(name)")
+        settings.state.global.selectedModel = name
+        reloadEngine()
         rebuildMenu()
+    }
+
+    /// Swap the engine to the currently selected model and pre-warm it.
+    private func reloadEngine() {
+        dismiss()
+        engine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
+        Task { await engine.preload() }
+        NSLog("Inkling: switched model to \(ModelConfig.currentModelName)")
     }
 
     /// A non-accept keystroke: hide the stale suggestion immediately (dismiss on
@@ -158,7 +165,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.dismiss()
-            guard Settings.enabled else { return }
+            guard EffectiveSettings.completionsEnabled(
+                state: self.settings.state, bundleID: FrontmostApp.bundleID) else { return }
             // Tier 1: show an instant memory suggestion if we have one — but do
             // NOT return. Tier 2 (the LLM) still runs and may upgrade it.
             _ = self.tryMemorySuggestion()
@@ -192,6 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return false
         }
 
+        settings.recordSuggestionShown(bundleID: FrontmostApp.bundleID, appName: FrontmostApp.name)
         suggestionSource = .memory
         memoryExactRepeat = hit.isExactRepeat
         currentSuggestion = suffix
@@ -212,6 +221,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func refreshSuggestion() {
+        // Focus may have moved to an excluded app during the debounce window.
+        guard EffectiveSettings.completionsEnabled(
+            state: settings.state, bundleID: FrontmostApp.bundleID) else {
+            dismiss()
+            return
+        }
         // An instant memory suggestion (Tier 1) may already be on screen; the LLM
         // (Tier 2) refines it. On a transient AX-read failure or non-line-end, KEEP
         // a shown memory suggestion (it was AX-validated when shown) rather than
@@ -268,6 +283,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case .dismiss:
                     self.dismiss()
                 case .replaceWithLLM:
+                    // Count new shows only — an LLM upgrade of a visible memory
+                    // suggestion was already counted when the memory tier showed.
+                    if self.suggestionSource == .none {
+                        self.settings.recordSuggestionShown(
+                            bundleID: FrontmostApp.bundleID, appName: FrontmostApp.name)
+                    }
                     self.suggestionSource = .llm
                     self.memoryExactRepeat = false
                     self.currentSuggestion = suggestion
