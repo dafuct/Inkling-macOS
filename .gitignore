@@ -16,11 +16,5 @@ Inkling.app
 .vscode/
 *.profraw
 
-# caveman agent rule files (local tooling, not project code)
-AGENTS.md
-.cursor/
-.windsurf/
-.clinerules/
-.opencode/
-.github/copilot-instructions.md
+# superpowers subagent-driven scratch (local tooling, not project code)
 .superpowers/
