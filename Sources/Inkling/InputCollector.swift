@@ -18,6 +18,13 @@ final class InputCollector {
     private var idleTimer: Timer?
     private let idleSeconds: TimeInterval = 30
 
+    // Throttle the per-keystroke focused-element AX read: the app-switch
+    // notification and the idle timer are the primary boundary signals, so a
+    // coarse focus-identity check is enough and keeps the keystroke hot path
+    // free of a system-wide AX IPC on every keypress.
+    private var lastFocusCheck: Date?
+    private let focusCheckInterval: TimeInterval = 0.5
+
     init(store: InputStore,
          isCollecting: @escaping () -> Bool,
          storeWithoutAccepted: @escaping () -> Bool) {
@@ -29,15 +36,19 @@ final class InputCollector {
     /// Called on each real keystroke (main thread).
     func onKeystroke() {
         guard isCollecting() else { endCurrentSession(); return }
-        let focused = FocusContextProvider.focusedElement()
-        guard let focused else { endCurrentSession(); return }
-        if let current = currentElement, CFEqual(current, focused) {
-            // same session — nothing to do but keep it alive
-        } else {
-            endCurrentSession()
-            currentElement = focused
-            currentBundleID = FrontmostApp.bundleID
-            session.reset()
+        let now = Date()
+        if lastFocusCheck == nil || now.timeIntervalSince(lastFocusCheck!) >= focusCheckInterval {
+            lastFocusCheck = now
+            let focused = FocusContextProvider.focusedElement()
+            guard let focused else { endCurrentSession(); return }
+            if let current = currentElement, CFEqual(current, focused) {
+                // same session — nothing to do but keep it alive
+            } else {
+                endCurrentSession()
+                currentElement = focused
+                currentBundleID = FrontmostApp.bundleID
+                session.reset()
+            }
         }
         restartIdleTimer()
     }
@@ -52,7 +63,7 @@ final class InputCollector {
     func endCurrentSession() {
         idleTimer?.invalidate()
         idleTimer = nil
-        defer { currentElement = nil; currentBundleID = nil; session.reset() }
+        defer { currentElement = nil; currentBundleID = nil; session.reset(); lastFocusCheck = nil }
         guard let element = currentElement, isCollecting() else { return }
         guard let text = FocusContextProvider.text(of: element) else { return }
         guard session.shouldStore(text: text, storeWithoutAccepted: storeWithoutAccepted()) else { return }
@@ -72,6 +83,7 @@ final class InputCollector {
         currentElement = nil
         currentBundleID = nil
         session.reset()
+        lastFocusCheck = nil
     }
 
     private func restartIdleTimer() {
