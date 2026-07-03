@@ -313,6 +313,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the word first); deliberately dictionary-only — memory jargon like
         // "impl" must still be completed, not continued past.
         let currentWordIsComplete = WordCompleteness.isDictionaryWord(context.currentWord)
+        // Custom instructions steer the LLM only when the experimental flag is on
+        // (default off). Resolved on the main actor; passed into the engine.
+        let instructions: String? = settings.state.global.instructionPreambleEnabled
+            ? EffectiveSettings.customInstructions(
+                state: settings.state, bundleID: FrontmostApp.bundleID)
+            : nil
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
@@ -320,7 +326,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // frequent-vocab hint injected into the LLM prompt — that made the
             // model regurgitate those words instead of continuing (commit a8e524e).
             let suggestion = await engine.suggestion(
-                for: context, currentWordIsComplete: currentWordIsComplete)
+                for: context, currentWordIsComplete: currentWordIsComplete,
+                instructions: instructions)
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in
                 guard let self else { return }

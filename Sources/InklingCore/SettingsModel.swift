@@ -79,6 +79,8 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
     public var collectInputs: Bool           // was learningEnabled; master capture+learn gate
     public var storeWithoutAccepted: Bool    // store inputs even without an accepted completion
     public var personalizeLevel: Int         // 0=off … MemoryEngine.maxPersonalizationLevel
+    public var customInstructions: String    // global custom AI instructions (subproject D)
+    public var instructionPreambleEnabled: Bool  // default-off gate for prompt injection
     public var midLineEnabled: Bool          // consumed by subproject E
     // TODO(subproject F): defaults true but no autocorrect engine exists yet — revisit so it doesn't silently enable on first ship.
     public var autocorrectEnabled: Bool      // consumed by subproject F
@@ -90,6 +92,8 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         collectInputs: Bool = true,
         storeWithoutAccepted: Bool = true,
         personalizeLevel: Int = 1,
+        customInstructions: String = "",
+        instructionPreambleEnabled: Bool = false,
         midLineEnabled: Bool = false,
         autocorrectEnabled: Bool = true,
         disableAcceptKeyDefault: Bool = false
@@ -99,17 +103,20 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         self.collectInputs = collectInputs
         self.storeWithoutAccepted = storeWithoutAccepted
         self.personalizeLevel = personalizeLevel
+        self.customInstructions = customInstructions
+        self.instructionPreambleEnabled = instructionPreambleEnabled
         self.midLineEnabled = midLineEnabled
         self.autocorrectEnabled = autocorrectEnabled
         self.disableAcceptKeyDefault = disableAcceptKeyDefault
     }
 
     // Explicit keys so the decoder can fall back to the legacy `learningEnabled`
-    // name. `learningEnabled` has no matching property, so synthesized encoding
+    // name. `learningEnabled` has no matching property, so hand-written encoding
     // never writes it — it exists only for reading pre-rename files.
     enum CodingKeys: String, CodingKey {
         case enabled, selectedModel, collectInputs, learningEnabled
         case storeWithoutAccepted, personalizeLevel
+        case customInstructions, instructionPreambleEnabled
         case midLineEnabled, autocorrectEnabled, disableAcceptKeyDefault
     }
 
@@ -121,14 +128,16 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
             ?? c.decodeIfPresent(Bool.self, forKey: .learningEnabled) ?? true
         storeWithoutAccepted = try c.decodeIfPresent(Bool.self, forKey: .storeWithoutAccepted) ?? true
         personalizeLevel = try c.decodeIfPresent(Int.self, forKey: .personalizeLevel) ?? 1
+        customInstructions = try c.decodeIfPresent(String.self, forKey: .customInstructions) ?? ""
+        instructionPreambleEnabled = try c.decodeIfPresent(Bool.self, forKey: .instructionPreambleEnabled) ?? false
         midLineEnabled = try c.decodeIfPresent(Bool.self, forKey: .midLineEnabled) ?? false
         autocorrectEnabled = try c.decodeIfPresent(Bool.self, forKey: .autocorrectEnabled) ?? true
         disableAcceptKeyDefault = try c.decodeIfPresent(Bool.self, forKey: .disableAcceptKeyDefault) ?? false
     }
 
-    // `learningEnabled` has no stored property, so it can never be synthesized —
-    // a custom init(from:) also disables encode(to:) synthesis entirely. Written
-    // by hand; deliberately omits the `.learningEnabled` key (decode-only).
+    // `learningEnabled` has no stored property, so a custom init(from:) disables
+    // encode(to:) synthesis entirely. Written by hand; deliberately omits the
+    // `.learningEnabled` key (decode-only).
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(enabled, forKey: .enabled)
@@ -136,6 +145,8 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         try c.encode(collectInputs, forKey: .collectInputs)
         try c.encode(storeWithoutAccepted, forKey: .storeWithoutAccepted)
         try c.encode(personalizeLevel, forKey: .personalizeLevel)
+        try c.encode(customInstructions, forKey: .customInstructions)
+        try c.encode(instructionPreambleEnabled, forKey: .instructionPreambleEnabled)
         try c.encode(midLineEnabled, forKey: .midLineEnabled)
         try c.encode(autocorrectEnabled, forKey: .autocorrectEnabled)
         try c.encode(disableAcceptKeyDefault, forKey: .disableAcceptKeyDefault)

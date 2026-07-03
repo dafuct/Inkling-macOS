@@ -30,12 +30,19 @@ func runRawDump(modelDir: URL, adhocPrompts: [String] = []) async throws {
 
     for p in prompts {
         print("PROMPT: \"\(p.suffix(70))\"")
+        var prompt = p
+        if let instr = ProcessInfo.processInfo.environment["INKLING_PREAMBLE"],
+           !instr.isEmpty,
+           let pre = InstructionPreamble.build(instructions: instr, tailLength: prompt.count) {
+            prompt = pre + prompt
+            FileHandle.standardError.write(Data("[preamble injected: \(pre.count) chars]\n".utf8))
+        }
         let r = try await GatedDecoder.decode(
             container: container, systemInstruction: "", userMessage: "",
             thresholds: ConfidenceThresholds(firstTokenMinProb: 0, minProb: 0, dominance: 1.0),
             maxTokens: 40, stopEarly: false,
             repetitionPenalty: 1.0, repetitionContextSize: 0,
-            rawPrompt: p)
+            rawPrompt: prompt)
         for (i, t) in r.probs.enumerated() {
             let piece = t.piece.replacingOccurrences(of: "\n", with: "\\n")
             print(String(format: "  %2d %-16s p1=%.3f p2=%.3f tok=%d",

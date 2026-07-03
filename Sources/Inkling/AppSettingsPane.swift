@@ -146,7 +146,7 @@ struct AppOverridesForm: View {
                 TextEditor(text: binding(\.customInstructions))
                     .font(.body.monospaced())
                     .frame(minHeight: 120)
-                Text("Stored now; used by the AI once custom instructions ship (subproject D).")
+                Text("Supplements the global Custom AI Instructions (Personalization) for this app. Takes effect when the experimental instructions toggle is on.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
