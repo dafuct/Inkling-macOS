@@ -32,7 +32,7 @@ enum ModelConfig {
     /// bundling a different model than the code default, or a deleted model), so
     /// a stale name can never leave the app silently suggestion-less.
     static var currentModelName: String {
-        let preferred = Settings.selectedModel ?? defaultModelName
+        let preferred = SettingsStore.shared.state.global.selectedModel ?? defaultModelName
         let installed = ModelCatalog.availableModels(in: modelsRoot)
         if installed.contains(preferred) || installed.isEmpty { return preferred }
         return installed[0]
