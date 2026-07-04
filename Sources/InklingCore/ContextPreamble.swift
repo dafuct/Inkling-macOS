@@ -1,24 +1,23 @@
 import Foundation
 
 /// Composes the single prompt preamble the engine prepends before the document
-/// tail, in order: instructions, then clipboard reference. Each block is gated
-/// and capped by its own builder. Returns nil when neither applies. The result
-/// already ends with the blank-line separator, so the caller prepends it
-/// directly before the tail. Pure.
+/// tail, in order: instructions → clipboard → screen. Each block is gated and
+/// capped by its own builder; blocks are blank-line separated and the result
+/// already ends with the separator so the caller prepends it directly before the
+/// tail. Returns nil when none apply. Pure.
 public enum ContextPreamble {
-    public static func build(instructions: String?, clipboard: String?, tailLength: Int) -> String? {
-        // InstructionPreamble.build already appends "\n\n"; ClipboardContext does not.
-        let instrBlock = instructions.flatMap {
+    public static func build(_ context: PromptContext, tailLength: Int) -> String? {
+        // InstructionPreamble.build already appends "\n\n"; the other two do not.
+        let instrBlock = context.instructions.flatMap {
             InstructionPreamble.build(instructions: $0, tailLength: tailLength)
         }
-        let clipBlock = clipboard
+        let clipBlock = context.clipboard
             .flatMap { ClipboardContext.build(clipboard: $0, tailLength: tailLength) }
             .map { $0 + "\n\n" }
-        switch (instrBlock, clipBlock) {
-        case (nil, nil): return nil
-        case let (i?, nil): return i
-        case let (nil, c?): return c
-        case let (i?, c?): return i + c
-        }
+        let screenBlock = context.screen
+            .flatMap { ScreenContext.build(screenText: $0, tailLength: tailLength) }
+            .map { $0 + "\n\n" }
+        let combined = [instrBlock, clipBlock, screenBlock].compactMap { $0 }.joined()
+        return combined.isEmpty ? nil : combined
     }
 }

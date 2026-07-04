@@ -385,6 +385,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             state: settings.state, bundleID: FrontmostApp.bundleID)
             ? clipboardProvider.freshText(window: 60, now: Date())
             : nil
+        // Fold the resolved sources into one context value (screen arrives in G2
+        // Task 5; nil here keeps this behavior-identical to G1).
+        let promptContext = PromptContext(instructions: instructions, clipboard: clipboard)
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
@@ -393,7 +396,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // model regurgitate those words instead of continuing (commit a8e524e).
             let raw = await engine.suggestion(
                 for: context, currentWordIsComplete: currentWordIsComplete,
-                instructions: instructions, clipboard: clipboard)
+                context: promptContext)
             if Task.isCancelled { return }
             // Mid-line: drop a continuation that restates the text after the caret.
             let suggestion = (!context.isAtLineEnd
