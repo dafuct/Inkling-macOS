@@ -27,6 +27,10 @@ enum TextInserter {
     /// Replaces the `count` characters immediately before the caret with `text`:
     /// synthesizes `count` marker-tagged backspaces, then types `text`. Marker-
     /// tagged so our own EventTapController ignores the edits (same as `insert`).
+    /// `count` is one backspace per unit, so the caller counts deletions in the
+    /// same units the app deletes in: the autocorrect caller passes the Character
+    /// count of a letters/digits-only word, which is grapheme-safe (no combining
+    /// marks or emoji reach this path).
     static func replace(deleting count: Int, insert text: String) {
         let source = CGEventSource(stateID: .combinedSessionState)
         let backspace: CGKeyCode = 0x33  // kVK_Delete
