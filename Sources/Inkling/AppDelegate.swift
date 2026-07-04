@@ -357,6 +357,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         firstChunkPending = true
         suggestionSource = .correction
         memoryExactRepeat = false
+        alternatives = AlternativeRing([])
+        browsingAlternatives = false
+        eventTap.alternativesAvailable = false
         suggestionMidLine = false
         currentCorrection = correction
         currentSuggestion = correction.replacement
@@ -488,6 +491,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.firstChunkPending = true
                     self.suggestionSource = .llm
                     self.memoryExactRepeat = false
+                    self.alternatives = AlternativeRing([])
+                    self.browsingAlternatives = false
+                    self.eventTap.alternativesAvailable = false
                     self.suggestionMidLine = !context.isAtLineEnd
                     self.currentSuggestion = suggestion
                     self.overlay.show(text: suggestion, caretBounds: bounds, font: font,
