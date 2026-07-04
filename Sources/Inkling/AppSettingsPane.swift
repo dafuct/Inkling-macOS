@@ -123,7 +123,7 @@ struct AppOverridesForm: View {
                     choice: binding(\.completions))
                 TriStatePicker(
                     label: "Enable mid-line completions",
-                    caption: "Stored now; takes effect when mid-line completions ship (subproject E).",
+                    caption: "Show completions mid-line for this app (overrides the global Labs setting).",
                     globalDefault: store.state.global.midLineEnabled,
                     choice: binding(\.midLine))
                 TriStatePicker(

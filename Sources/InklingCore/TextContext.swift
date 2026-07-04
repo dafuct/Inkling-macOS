@@ -28,6 +28,21 @@ public struct TextContext: Equatable {
         return next == "\n" || next == "\r"
     }
 
+    /// The text from the caret to the end of the current line (up to the next
+    /// line break, or the end of the field). Empty when the caret is at line
+    /// end. Used to detect a mid-line continuation that would restate what
+    /// already follows the caret.
+    public var lineSuffix: String {
+        let u16 = fullText.utf16
+        let startU16 = u16.index(u16.startIndex, offsetBy: caretIndex, limitedBy: u16.endIndex) ?? u16.endIndex
+        guard let start = startU16.samePosition(in: fullText) else { return "" }
+        var end = start
+        while end < fullText.endIndex, fullText[end] != "\n", fullText[end] != "\r" {
+            end = fullText.index(after: end)
+        }
+        return String(fullText[start..<end])
+    }
+
     /// The partial word (letters/digits) immediately before the caret, or "".
     public var currentWord: String {
         var chars: [Character] = []
