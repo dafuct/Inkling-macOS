@@ -142,6 +142,11 @@ struct AppOverridesForm: View {
                     globalDefault: store.state.global.useScreenContext,
                     choice: binding(\.screenContext))
                 TriStatePicker(
+                    label: "Show alternative suggestions",
+                    caption: "Let ⌥` cycle through history-ranked alternative completions for this app (overrides the global Labs setting).",
+                    globalDefault: store.state.global.showAlternatives,
+                    choice: binding(\.alternatives))
+                TriStatePicker(
                     label: "Disable accept key (`)",
                     caption: "Let ` type through where it's a real character (Markdown, terminals). Until an alternative shortcut ships, suggestions can't be accepted in such apps.",
                     globalDefault: store.state.global.disableAcceptKeyDefault,
