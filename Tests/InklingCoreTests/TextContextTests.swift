@@ -42,4 +42,24 @@ final class TextContextTests: XCTestCase {
     func test_isAtLineEnd_trueForEmptyText() {
         XCTAssertTrue(TextContext(fullText: "", caretIndex: 0).isAtLineEnd)
     }
+
+    func test_lineSuffix_midLine_returnsRestOfLine() {
+        let c = TextContext(fullText: "the cat sat on the mat", caretIndex: 15)  // after "the cat sat on "
+        XCTAssertEqual(c.lineSuffix, "the mat")
+    }
+
+    func test_lineSuffix_atLineEnd_isEmpty() {
+        let c = TextContext(fullText: "hello world", caretIndex: 11)
+        XCTAssertEqual(c.lineSuffix, "")
+    }
+
+    func test_lineSuffix_stopsAtNewline() {
+        let c = TextContext(fullText: "abc def\nghi", caretIndex: 3)  // after "abc"
+        XCTAssertEqual(c.lineSuffix, " def")
+    }
+
+    func test_lineSuffix_caretBeforeNewline_isEmpty() {
+        let c = TextContext(fullText: "abc\ndef", caretIndex: 3)  // right before "\n"
+        XCTAssertEqual(c.lineSuffix, "")
+    }
 }
