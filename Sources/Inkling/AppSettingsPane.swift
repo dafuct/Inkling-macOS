@@ -137,6 +137,11 @@ struct AppOverridesForm: View {
                     globalDefault: store.state.global.useClipboardContext,
                     choice: binding(\.clipboardContext))
                 TriStatePicker(
+                    label: "Use screen as context",
+                    caption: "Let on-screen text from the focused window guide completions for this app (overrides the global Context setting). Requires Screen Recording permission.",
+                    globalDefault: store.state.global.useScreenContext,
+                    choice: binding(\.screenContext))
+                TriStatePicker(
                     label: "Disable accept key (`)",
                     caption: "Let ` type through where it's a real character (Markdown, terminals). Until an alternative shortcut ships, suggestions can't be accepted in such apps.",
                     globalDefault: store.state.global.disableAcceptKeyDefault,
