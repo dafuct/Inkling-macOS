@@ -69,6 +69,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self?.clearLearned() }
         }
 
+        if ModelCatalog.availableModels(in: ModelConfig.modelsRoot).isEmpty {
+            NSLog("Inkling: no model installed — opening Model pane for first-run download")
+            settingsWindow.show(select: .model)
+        }
+
         let trusted = PermissionsManager.isAccessibilityTrusted(prompt: true)
         NSLog("Inkling: launched. accessibilityTrusted=\(trusted)")
         guard trusted else {
@@ -126,11 +131,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Task { await engine.preload() }
         NSLog("Inkling: pre-warming model \(ModelConfig.currentModelName)")
-
-        if ModelCatalog.availableModels(in: ModelConfig.modelsRoot).isEmpty {
-            NSLog("Inkling: no model installed — opening Model pane for first-run download")
-            settingsWindow.show(select: .model)
-        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
