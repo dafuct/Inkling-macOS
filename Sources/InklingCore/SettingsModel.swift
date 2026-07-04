@@ -21,6 +21,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
     public var completions: OverrideChoice
     public var midLine: OverrideChoice
     public var autocorrect: OverrideChoice
+    public var clipboardContext: OverrideChoice
     public var disableAcceptKey: OverrideChoice
     public var improveCompatibility: Bool
     public var customInstructions: String
@@ -29,6 +30,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
         completions: OverrideChoice = .useDefault,
         midLine: OverrideChoice = .useDefault,
         autocorrect: OverrideChoice = .useDefault,
+        clipboardContext: OverrideChoice = .useDefault,
         disableAcceptKey: OverrideChoice = .useDefault,
         improveCompatibility: Bool = false,
         customInstructions: String = ""
@@ -36,6 +38,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
         self.completions = completions
         self.midLine = midLine
         self.autocorrect = autocorrect
+        self.clipboardContext = clipboardContext
         self.disableAcceptKey = disableAcceptKey
         self.improveCompatibility = improveCompatibility
         self.customInstructions = customInstructions
@@ -46,6 +49,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
         completions = try c.decodeIfPresent(OverrideChoice.self, forKey: .completions) ?? .useDefault
         midLine = try c.decodeIfPresent(OverrideChoice.self, forKey: .midLine) ?? .useDefault
         autocorrect = try c.decodeIfPresent(OverrideChoice.self, forKey: .autocorrect) ?? .useDefault
+        clipboardContext = try c.decodeIfPresent(OverrideChoice.self, forKey: .clipboardContext) ?? .useDefault
         disableAcceptKey = try c.decodeIfPresent(OverrideChoice.self, forKey: .disableAcceptKey) ?? .useDefault
         improveCompatibility = try c.decodeIfPresent(Bool.self, forKey: .improveCompatibility) ?? false
         customInstructions = try c.decodeIfPresent(String.self, forKey: .customInstructions) ?? ""
@@ -81,6 +85,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
     public var personalizeLevel: Int         // 0=off … MemoryEngine.maxPersonalizationLevel
     public var customInstructions: String    // global custom AI instructions (subproject D)
     public var instructionPreambleEnabled: Bool  // default-off gate for prompt injection
+    public var useClipboardContext: Bool     // consumed by subproject G1 (clipboard context)
     public var midLineEnabled: Bool          // consumed by subproject E
     public var autocorrectEnabled: Bool      // consumed by subproject F
     public var disableAcceptKeyDefault: Bool
@@ -93,6 +98,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         personalizeLevel: Int = 1,
         customInstructions: String = "",
         instructionPreambleEnabled: Bool = false,
+        useClipboardContext: Bool = false,
         midLineEnabled: Bool = false,
         autocorrectEnabled: Bool = true,
         disableAcceptKeyDefault: Bool = false
@@ -104,6 +110,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         self.personalizeLevel = personalizeLevel
         self.customInstructions = customInstructions
         self.instructionPreambleEnabled = instructionPreambleEnabled
+        self.useClipboardContext = useClipboardContext
         self.midLineEnabled = midLineEnabled
         self.autocorrectEnabled = autocorrectEnabled
         self.disableAcceptKeyDefault = disableAcceptKeyDefault
@@ -116,6 +123,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         case enabled, selectedModel, collectInputs, learningEnabled
         case storeWithoutAccepted, personalizeLevel
         case customInstructions, instructionPreambleEnabled
+        case useClipboardContext
         case midLineEnabled, autocorrectEnabled, disableAcceptKeyDefault
     }
 
@@ -129,6 +137,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         personalizeLevel = try c.decodeIfPresent(Int.self, forKey: .personalizeLevel) ?? 1
         customInstructions = try c.decodeIfPresent(String.self, forKey: .customInstructions) ?? ""
         instructionPreambleEnabled = try c.decodeIfPresent(Bool.self, forKey: .instructionPreambleEnabled) ?? false
+        useClipboardContext = try c.decodeIfPresent(Bool.self, forKey: .useClipboardContext) ?? false
         midLineEnabled = try c.decodeIfPresent(Bool.self, forKey: .midLineEnabled) ?? false
         autocorrectEnabled = try c.decodeIfPresent(Bool.self, forKey: .autocorrectEnabled) ?? true
         disableAcceptKeyDefault = try c.decodeIfPresent(Bool.self, forKey: .disableAcceptKeyDefault) ?? false
@@ -146,6 +155,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         try c.encode(personalizeLevel, forKey: .personalizeLevel)
         try c.encode(customInstructions, forKey: .customInstructions)
         try c.encode(instructionPreambleEnabled, forKey: .instructionPreambleEnabled)
+        try c.encode(useClipboardContext, forKey: .useClipboardContext)
         try c.encode(midLineEnabled, forKey: .midLineEnabled)
         try c.encode(autocorrectEnabled, forKey: .autocorrectEnabled)
         try c.encode(disableAcceptKeyDefault, forKey: .disableAcceptKeyDefault)

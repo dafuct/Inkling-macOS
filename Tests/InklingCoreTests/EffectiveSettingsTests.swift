@@ -110,4 +110,16 @@ final class EffectiveSettingsTests: XCTestCase {
         let s = state(overrides: ["com.example": AppOverrides(improveCompatibility: true)])
         XCTAssertTrue(EffectiveSettings.improveCompatibility(state: s, bundleID: "com.example"))
     }
+
+    // MARK: clipboard context
+
+    func test_clipboardContext_globalDefaultOffByDefault() {
+        XCTAssertFalse(EffectiveSettings.clipboardContextEnabled(state: state(), bundleID: "com.example"))
+    }
+
+    func test_clipboardContext_perAppOnBeatsGlobalOff() {
+        let s = state(overrides: ["com.example": AppOverrides(clipboardContext: .on)])
+        XCTAssertTrue(EffectiveSettings.clipboardContextEnabled(state: s, bundleID: "com.example"))
+        XCTAssertFalse(EffectiveSettings.clipboardContextEnabled(state: s, bundleID: "com.other"))
+    }
 }

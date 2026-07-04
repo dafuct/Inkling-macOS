@@ -25,6 +25,10 @@ public enum EffectiveSettings {
         choice(state, bundleID, \.autocorrect).resolved(default: state.global.autocorrectEnabled)
     }
 
+    public static func clipboardContextEnabled(state: SettingsState, bundleID: String?) -> Bool {
+        choice(state, bundleID, \.clipboardContext).resolved(default: state.global.useClipboardContext)
+    }
+
     /// Combined instructions: the global baseline plus the per-app supplement
     /// (blank-line separated). nil when both are empty. (Consumer: the engine
     /// wiring, subproject D.)

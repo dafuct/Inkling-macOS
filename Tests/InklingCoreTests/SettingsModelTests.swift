@@ -86,6 +86,18 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertFalse(OverrideChoice.off.resolved(default: true))
     }
 
+    func test_useClipboardContext_defaultsFalse() {
+        XCTAssertFalse(GlobalSettings().useClipboardContext)
+    }
+
+    func test_useClipboardContext_roundTrips() throws {
+        var g = GlobalSettings()
+        g.useClipboardContext = true
+        let data = try JSONEncoder().encode(g)
+        let decoded = try JSONDecoder().decode(GlobalSettings.self, from: data)
+        XCTAssertTrue(decoded.useClipboardContext)
+    }
+
     func test_appsSortedByUsage_ordersByCountThenName() {
         var state = SettingsState()
         let t = Date(timeIntervalSince1970: 0)

@@ -33,20 +33,27 @@ actor MLXEngine: SuggestionEngine {
         return c
     }
 
-    /// SuggestionEngine conformance (no custom instructions).
+    /// SuggestionEngine conformance (no custom instructions, no clipboard).
     func suggestion(for context: InklingCore.TextContext, currentWordIsComplete: Bool) async -> String {
-        await suggestion(for: context, currentWordIsComplete: currentWordIsComplete, instructions: nil)
+        await suggestion(for: context, currentWordIsComplete: currentWordIsComplete,
+                         instructions: nil, clipboard: nil)
     }
 
     func suggestion(for context: InklingCore.TextContext, currentWordIsComplete: Bool,
                     instructions: String?) async -> String {
+        await suggestion(for: context, currentWordIsComplete: currentWordIsComplete,
+                         instructions: instructions, clipboard: nil)
+    }
+
+    func suggestion(for context: InklingCore.TextContext, currentWordIsComplete: Bool,
+                    instructions: String?, clipboard: String?) async -> String {
         let promptText = CompletionPrompt.prompt(for: context, maxChars: ModelConfig.promptMaxChars)
         guard promptText.count >= 2 else { return "" }
-        // Optional instruction preamble: prepended before the document tail on
-        // short tails only. nil when no instructions or the tail is long.
-        let preamble = instructions.flatMap {
-            InstructionPreamble.build(instructions: $0, tailLength: promptText.count)
-        }
+        // Optional context preamble (instructions + clipboard), prepended before
+        // the document tail on short tails only. nil when nothing applies — then
+        // this path is byte-identical to the instruction-only cycle-D result.
+        let preamble = ContextPreamble.build(
+            instructions: instructions, clipboard: clipboard, tailLength: promptText.count)
         let framed = preamble.map { $0 + promptText } ?? promptText
         let word = context.currentWord
         let completing = !word.isEmpty && !currentWordIsComplete
