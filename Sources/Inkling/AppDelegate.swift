@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settingsWindow = SettingsWindowController()
     private let overlay = OverlayWindow()
     private let clipboardProvider = ClipboardContextProvider()
+    private let screenProvider = ScreenContextProvider()
     private var engine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
     private let debouncer = Debouncer(delay: ModelConfig.suggestionDebounceSeconds)
     private var statusItem: NSStatusItem?
@@ -385,9 +386,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             state: settings.state, bundleID: FrontmostApp.bundleID)
             ? clipboardProvider.freshText(window: 60, now: Date())
             : nil
-        // Fold the resolved sources into one context value (screen arrives in G2
-        // Task 5; nil here keeps this behavior-identical to G1).
-        let promptContext = PromptContext(instructions: instructions, clipboard: clipboard)
+        // Focused-window OCR text as context (per-app gated, default off, requires
+        // Screen Recording permission). refreshIfNeeded kicks a background capture;
+        // recentText reads the last-ready cache synchronously — never blocks.
+        let screen: String?
+        if EffectiveSettings.screenContextEnabled(state: settings.state, bundleID: bundleID) {
+            screenProvider.refreshIfNeeded(now: Date())
+            screen = screenProvider.recentText(window: 30, now: Date())
+        } else {
+            screen = nil
+        }
+        // Fold the resolved sources into one context value.
+        let promptContext = PromptContext(instructions: instructions, clipboard: clipboard, screen: screen)
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
