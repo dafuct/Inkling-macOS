@@ -132,6 +132,11 @@ struct AppOverridesForm: View {
                     globalDefault: store.state.global.autocorrectEnabled,
                     choice: binding(\.autocorrect))
                 TriStatePicker(
+                    label: "Use clipboard as context",
+                    caption: "Let recently-copied text guide completions for this app (overrides the global Context setting).",
+                    globalDefault: store.state.global.useClipboardContext,
+                    choice: binding(\.clipboardContext))
+                TriStatePicker(
                     label: "Disable accept key (`)",
                     caption: "Let ` type through where it's a real character (Markdown, terminals). Until an alternative shortcut ships, suggestions can't be accepted in such apps.",
                     globalDefault: store.state.global.disableAcceptKeyDefault,

@@ -44,9 +44,7 @@ struct SettingsRootView: View {
             case .personalization:
                 PersonalizationPane()
             case .context:
-                PlaceholderPane(
-                    title: "Context",
-                    note: "Screenshot & clipboard context arrive with subproject G.")
+                ContextPane()
             case .labs:
                 LabsPane()
             case .statistics:
