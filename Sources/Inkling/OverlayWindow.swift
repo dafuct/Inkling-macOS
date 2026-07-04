@@ -31,7 +31,7 @@ final class OverlayWindow {
     /// `caretBounds` is in global display coords (top-left origin), as returned
     /// by Accessibility. Draws the text on the caret's line, matching the typed
     /// text's font when Accessibility provides it, else scaling to the line height.
-    func show(text: String, caretBounds: CGRect, font: NSFont?) {
+    func show(text: String, caretBounds: CGRect, font: NSFont?, background: Bool = false) {
         let lineHeight = max(caretBounds.height, 12)
         label.font = font ?? .systemFont(ofSize: max(9, min(40, lineHeight * 0.80)))
         label.stringValue = text
@@ -50,6 +50,16 @@ final class OverlayWindow {
         // Center the text vertically on the line so it sits on the same baseline.
         let y = (lineHeight - textSize.height) / 2
         label.frame = NSRect(x: 2, y: y, width: textSize.width, height: textSize.height)
+
+        // Mid-line suggestions overlap the trailing text; a translucent pill
+        // keeps them legible. Line-end suggestions draw as plain gray text.
+        window.contentView?.wantsLayer = true
+        if let layer = window.contentView?.layer {
+            layer.backgroundColor = background
+                ? NSColor.windowBackgroundColor.withAlphaComponent(0.85).cgColor
+                : NSColor.clear.cgColor
+            layer.cornerRadius = background ? 4 : 0
+        }
         window.orderFrontRegardless()
     }
 
