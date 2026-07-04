@@ -3,11 +3,6 @@ import InklingCore
 
 /// Chosen local model + generation settings + prompt for the real engine.
 enum ModelConfig {
-    /// Root folder holding installed model directories. Resolved portably so the
-    /// app runs as a distributed bundle, a user install, or a dev checkout:
-    ///   1. models bundled inside the app (Contents/Resources/models),
-    ///   2. ~/Library/Application Support/Inkling/models,
-    ///   3. the developer source checkout (fallback).
     /// The single writable install destination for downloaded models:
     /// ~/Library/Application Support/Inkling/models (created on demand).
     static let installRoot: URL = {
