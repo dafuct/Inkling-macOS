@@ -122,4 +122,16 @@ final class EffectiveSettingsTests: XCTestCase {
         XCTAssertTrue(EffectiveSettings.clipboardContextEnabled(state: s, bundleID: "com.example"))
         XCTAssertFalse(EffectiveSettings.clipboardContextEnabled(state: s, bundleID: "com.other"))
     }
+
+    // MARK: screen context
+
+    func test_screenContext_globalDefaultOffByDefault() {
+        XCTAssertFalse(EffectiveSettings.screenContextEnabled(state: state(), bundleID: "com.example"))
+    }
+
+    func test_screenContext_perAppOnBeatsGlobalOff() {
+        let s = state(overrides: ["com.example": AppOverrides(screenContext: .on)])
+        XCTAssertTrue(EffectiveSettings.screenContextEnabled(state: s, bundleID: "com.example"))
+        XCTAssertFalse(EffectiveSettings.screenContextEnabled(state: s, bundleID: "com.other"))
+    }
 }

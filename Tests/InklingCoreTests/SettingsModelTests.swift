@@ -98,6 +98,18 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(decoded.useClipboardContext)
     }
 
+    func test_useScreenContext_defaultsFalse() {
+        XCTAssertFalse(GlobalSettings().useScreenContext)
+    }
+
+    func test_useScreenContext_roundTrips() throws {
+        var g = GlobalSettings()
+        g.useScreenContext = true
+        let data = try JSONEncoder().encode(g)
+        let decoded = try JSONDecoder().decode(GlobalSettings.self, from: data)
+        XCTAssertTrue(decoded.useScreenContext)
+    }
+
     func test_appsSortedByUsage_ordersByCountThenName() {
         var state = SettingsState()
         let t = Date(timeIntervalSince1970: 0)
