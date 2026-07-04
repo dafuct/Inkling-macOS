@@ -29,6 +29,10 @@ public enum EffectiveSettings {
         choice(state, bundleID, \.clipboardContext).resolved(default: state.global.useClipboardContext)
     }
 
+    public static func screenContextEnabled(state: SettingsState, bundleID: String?) -> Bool {
+        choice(state, bundleID, \.screenContext).resolved(default: state.global.useScreenContext)
+    }
+
     /// Combined instructions: the global baseline plus the per-app supplement
     /// (blank-line separated). nil when both are empty. (Consumer: the engine
     /// wiring, subproject D.)
