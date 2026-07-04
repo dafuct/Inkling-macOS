@@ -24,6 +24,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
     public var clipboardContext: OverrideChoice
     public var screenContext: OverrideChoice
     public var disableAcceptKey: OverrideChoice
+    public var alternatives: OverrideChoice
     public var improveCompatibility: Bool
     public var customInstructions: String
 
@@ -34,6 +35,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
         clipboardContext: OverrideChoice = .useDefault,
         screenContext: OverrideChoice = .useDefault,
         disableAcceptKey: OverrideChoice = .useDefault,
+        alternatives: OverrideChoice = .useDefault,
         improveCompatibility: Bool = false,
         customInstructions: String = ""
     ) {
@@ -43,6 +45,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
         self.clipboardContext = clipboardContext
         self.screenContext = screenContext
         self.disableAcceptKey = disableAcceptKey
+        self.alternatives = alternatives
         self.improveCompatibility = improveCompatibility
         self.customInstructions = customInstructions
     }
@@ -55,6 +58,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
         clipboardContext = try c.decodeIfPresent(OverrideChoice.self, forKey: .clipboardContext) ?? .useDefault
         screenContext = try c.decodeIfPresent(OverrideChoice.self, forKey: .screenContext) ?? .useDefault
         disableAcceptKey = try c.decodeIfPresent(OverrideChoice.self, forKey: .disableAcceptKey) ?? .useDefault
+        alternatives = try c.decodeIfPresent(OverrideChoice.self, forKey: .alternatives) ?? .useDefault
         improveCompatibility = try c.decodeIfPresent(Bool.self, forKey: .improveCompatibility) ?? false
         customInstructions = try c.decodeIfPresent(String.self, forKey: .customInstructions) ?? ""
     }
@@ -91,6 +95,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
     public var instructionPreambleEnabled: Bool  // default-off gate for prompt injection
     public var useClipboardContext: Bool     // consumed by subproject G1 (clipboard context)
     public var useScreenContext: Bool        // consumed by subproject G2 (screen context)
+    public var showAlternatives: Bool        // consumed by subproject H (alternatives picker)
     public var midLineEnabled: Bool          // consumed by subproject E
     public var autocorrectEnabled: Bool      // consumed by subproject F
     public var disableAcceptKeyDefault: Bool
@@ -105,6 +110,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         instructionPreambleEnabled: Bool = false,
         useClipboardContext: Bool = false,
         useScreenContext: Bool = false,
+        showAlternatives: Bool = false,
         midLineEnabled: Bool = false,
         autocorrectEnabled: Bool = true,
         disableAcceptKeyDefault: Bool = false
@@ -118,6 +124,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         self.instructionPreambleEnabled = instructionPreambleEnabled
         self.useClipboardContext = useClipboardContext
         self.useScreenContext = useScreenContext
+        self.showAlternatives = showAlternatives
         self.midLineEnabled = midLineEnabled
         self.autocorrectEnabled = autocorrectEnabled
         self.disableAcceptKeyDefault = disableAcceptKeyDefault
@@ -132,6 +139,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         case customInstructions, instructionPreambleEnabled
         case useClipboardContext
         case useScreenContext
+        case showAlternatives
         case midLineEnabled, autocorrectEnabled, disableAcceptKeyDefault
     }
 
@@ -147,6 +155,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         instructionPreambleEnabled = try c.decodeIfPresent(Bool.self, forKey: .instructionPreambleEnabled) ?? false
         useClipboardContext = try c.decodeIfPresent(Bool.self, forKey: .useClipboardContext) ?? false
         useScreenContext = try c.decodeIfPresent(Bool.self, forKey: .useScreenContext) ?? false
+        showAlternatives = try c.decodeIfPresent(Bool.self, forKey: .showAlternatives) ?? false
         midLineEnabled = try c.decodeIfPresent(Bool.self, forKey: .midLineEnabled) ?? false
         autocorrectEnabled = try c.decodeIfPresent(Bool.self, forKey: .autocorrectEnabled) ?? true
         disableAcceptKeyDefault = try c.decodeIfPresent(Bool.self, forKey: .disableAcceptKeyDefault) ?? false
@@ -166,6 +175,7 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
         try c.encode(instructionPreambleEnabled, forKey: .instructionPreambleEnabled)
         try c.encode(useClipboardContext, forKey: .useClipboardContext)
         try c.encode(useScreenContext, forKey: .useScreenContext)
+        try c.encode(showAlternatives, forKey: .showAlternatives)
         try c.encode(midLineEnabled, forKey: .midLineEnabled)
         try c.encode(autocorrectEnabled, forKey: .autocorrectEnabled)
         try c.encode(disableAcceptKeyDefault, forKey: .disableAcceptKeyDefault)

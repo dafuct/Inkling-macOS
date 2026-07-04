@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import InklingCore
 
 /// Owns a CGEventTap. When a suggestion is visible it swallows backtick (accept)
 /// and Esc (dismiss); otherwise it passes keys through and reports them.
@@ -14,6 +15,10 @@ final class EventTapController {
     /// visible; return false to let the keystroke pass through (per-app
     /// "Disable accept key"). nil means always swallow.
     var shouldSwallowAccept: (() -> Bool)?
+    var onCycle: (() -> Void)?
+    /// True while the visible suggestion has ≥2 cyclable alternatives; consulted
+    /// before swallowing Option+backtick as a cycle.
+    var alternativesAvailable = false
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -67,10 +72,21 @@ final class EventTapController {
             }
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
             if suggestionVisible {
-                // swallow ` (accept) unless the accept key is disabled for this app
-                if keyCode == acceptKeyCode, shouldSwallowAccept?() ?? true {
-                    onAccept?()
+                let optionHeld = event.flags.contains(.maskAlternate)
+                switch AcceptKeyAction.classify(
+                    isAcceptKey: keyCode == acceptKeyCode, optionHeld: optionHeld,
+                    suggestionVisible: true, alternativesAvailable: alternativesAvailable) {
+                case .cycle:
+                    onCycle?()
                     return nil
+                case .accept:
+                    // swallow ` (accept) unless the accept key is disabled for this app
+                    if shouldSwallowAccept?() ?? true {
+                        onAccept?()
+                        return nil
+                    }
+                case .passThrough:
+                    break
                 }
                 if keyCode == escKeyCode { onDismiss?(); return nil }  // swallow Esc
             }

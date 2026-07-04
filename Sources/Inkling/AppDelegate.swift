@@ -37,6 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// caret), so the overlay draws a background pill. Retained across word-by-
     /// word accept; reset on dismiss.
     private var suggestionMidLine = false
+    /// History-ranked alternatives for the current memory suggestion (subproject H).
+    private var alternatives = AlternativeRing([])
+    /// True once the user has cycled; locks the LLM tier out like `accepting`.
+    private var browsingAlternatives = false
     /// Pure current-word typo-correction policy; the system spell checker backs it.
     private let autocorrector = Autocorrector(
         checker: SystemSpellChecker(),
@@ -74,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         eventTap.onKeyDown = { [weak self] in self?.onKeyDown() }
         eventTap.onAccept = { [weak self] in DispatchQueue.main.async { self?.acceptNextWord() } }
         eventTap.onDismiss = { [weak self] in DispatchQueue.main.async { self?.dismiss() } }
+        eventTap.onCycle = { [weak self] in DispatchQueue.main.async { self?.cycleAlternative() } }
         eventTap.shouldSwallowAccept = { [weak self] in
             guard let self else { return true }
             return EffectiveSettings.acceptKeyEnabled(
@@ -253,13 +258,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func tryMemorySuggestion() -> Bool {
         guard let gates = MemoryEngine.gates(forLevel: settings.state.global.personalizeLevel)
         else { return false }
-        guard let hit = MemoryEngine.hit(
-            currentWord: recorder.currentWord,
-            precedingWords: recorder.recentWords,
-            memory: memory,
-            gates: gates
-        ), !hit.text.isEmpty else { return false }
-        let suffix = hit.text
+        // When the alternatives feature is on, relax to the frequency floor and
+        // build a cyclable ring; otherwise today's dominance-gated single hit.
+        let suffix: String
+        let isExactRepeat: Bool
+        let ring: AlternativeRing
+        if EffectiveSettings.alternativesEnabled(
+            state: settings.state, bundleID: FrontmostApp.bundleID) {
+            let cands = MemoryEngine.alternatives(
+                currentWord: recorder.currentWord, precedingWords: recorder.recentWords,
+                memory: memory, gates: gates, max: 3)
+            ring = AlternativeRing(cands)
+            guard let first = ring.current, !first.isEmpty else { return false }
+            suffix = first
+            isExactRepeat = false
+        } else {
+            guard let hit = MemoryEngine.hit(
+                currentWord: recorder.currentWord, precedingWords: recorder.recentWords,
+                memory: memory, gates: gates), !hit.text.isEmpty else { return false }
+            suffix = hit.text
+            isExactRepeat = hit.isExactRepeat
+            ring = AlternativeRing([])
+        }
 
         // Validate against the real field so a desynced buffer can't show a wrong
         // completion (this AX read happens only on a memory hit). currentReadout()
@@ -289,12 +309,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.recordSuggestionShown(bundleID: FrontmostApp.bundleID, appName: FrontmostApp.name)
         firstChunkPending = true
         suggestionSource = .memory
-        memoryExactRepeat = hit.isExactRepeat
+        memoryExactRepeat = isExactRepeat
+        alternatives = ring
+        browsingAlternatives = false
+        eventTap.alternativesAvailable = ring.hasAlternatives
         currentSuggestion = suffix
         overlay.show(text: suffix, caretBounds: bounds, font: readout.font, background: suggestionMidLine)
         eventTap.suggestionVisible = true
-        NSLog("Inkling: memory \"\(suffix)\" for \"\(recorder.currentWord)\"")
+        NSLog("Inkling: memory \"\(suffix)\" for \"\(recorder.currentWord)\" alts=\(ring.count)")
         return true
+    }
+
+    /// ⌥` advances to the next history-ranked alternative and re-renders the ghost
+    /// text at the caret. Sets the browsing lock so a late LLM result can't swap it.
+    private func cycleAlternative() {
+        guard alternatives.hasAlternatives else { return }
+        alternatives.next()
+        guard let next = alternatives.current else { return }
+        browsingAlternatives = true
+        currentSuggestion = next
+        guard let readout = FocusContextProvider.currentReadout(),
+              let bounds = readout.caretBounds else { return }
+        overlay.show(text: next, caretBounds: bounds, font: readout.font, background: suggestionMidLine)
+        eventTap.suggestionVisible = true
+        NSLog("Inkling: cycled to \"\(next)\"")
     }
 
     private func dismiss() {
@@ -307,6 +345,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         accepting = false
         firstChunkPending = false
         suggestionMidLine = false
+        alternatives = AlternativeRing([])
+        browsingAlternatives = false
+        eventTap.alternativesAvailable = false
         currentCorrection = nil
     }
 
@@ -316,6 +357,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         firstChunkPending = true
         suggestionSource = .correction
         memoryExactRepeat = false
+        alternatives = AlternativeRing([])
+        browsingAlternatives = false
+        eventTap.alternativesAvailable = false
         suggestionMidLine = false
         currentCorrection = correction
         currentSuggestion = correction.replacement
@@ -423,7 +467,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 switch SuggestionArbiter.decide(
                     shown: shown, visibleText: self.currentSuggestion,
-                    llmSuggestion: suggestion, accepting: self.accepting
+                    llmSuggestion: suggestion,
+                    accepting: self.accepting || self.browsingAlternatives
                 ) {
                 case .keep:
                     return
@@ -446,6 +491,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.firstChunkPending = true
                     self.suggestionSource = .llm
                     self.memoryExactRepeat = false
+                    self.alternatives = AlternativeRing([])
+                    self.browsingAlternatives = false
+                    self.eventTap.alternativesAvailable = false
                     self.suggestionMidLine = !context.isAtLineEnd
                     self.currentSuggestion = suggestion
                     self.overlay.show(text: suggestion, caretBounds: bounds, font: font,

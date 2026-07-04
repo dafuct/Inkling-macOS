@@ -134,4 +134,16 @@ final class EffectiveSettingsTests: XCTestCase {
         XCTAssertTrue(EffectiveSettings.screenContextEnabled(state: s, bundleID: "com.example"))
         XCTAssertFalse(EffectiveSettings.screenContextEnabled(state: s, bundleID: "com.other"))
     }
+
+    // MARK: alternatives
+
+    func test_alternatives_globalDefaultOffByDefault() {
+        XCTAssertFalse(EffectiveSettings.alternativesEnabled(state: state(), bundleID: "com.example"))
+    }
+
+    func test_alternatives_perAppOnBeatsGlobalOff() {
+        let s = state(overrides: ["com.example": AppOverrides(alternatives: .on)])
+        XCTAssertTrue(EffectiveSettings.alternativesEnabled(state: s, bundleID: "com.example"))
+        XCTAssertFalse(EffectiveSettings.alternativesEnabled(state: s, bundleID: "com.other"))
+    }
 }

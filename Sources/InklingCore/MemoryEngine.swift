@@ -59,6 +59,40 @@ public enum MemoryEngine {
         return MemoryHit(text: text, isExactRepeat: true)
     }
 
+    /// The history-ranked alternative completions to cycle through, gated by the
+    /// frequency floor ONLY (dominance is deliberately not required — the whole
+    /// point is the multi-candidate case `hit` suppresses). Single-step: whole-word
+    /// completion suffixes (currentWord non-empty) or single next-words (empty).
+    /// Deduped, most-frequent-first, capped at `max`. Empty when nothing clears
+    /// `minSightings`.
+    public static func alternatives(
+        currentWord: String,
+        precedingWords: [String],
+        memory: PersonalMemory,
+        gates: Gates = Gates(),
+        max: Int = 3
+    ) -> [String] {
+        let raw: [String]
+        if currentWord.isEmpty {
+            raw = memory.nextWordCandidates(after: precedingWords)
+                .filter { $0.count >= gates.minSightings }
+                .map { $0.word }
+        } else {
+            guard currentWord.count >= gates.minPrefixLength else { return [] }
+            raw = memory.wordCandidates(withPrefix: currentWord)
+                .filter { $0.count >= gates.minSightings }
+                .map { String($0.word.dropFirst(currentWord.count)) }
+        }
+        var seen = Set<String>()
+        var out: [String] = []
+        for s in raw where !s.isEmpty && !seen.contains(s) {
+            seen.insert(s)
+            out.append(s)
+            if out.count == max { break }
+        }
+        return out
+    }
+
     private static func wordCompletion(currentWord: String, memory: PersonalMemory, gates: Gates) -> String? {
         guard currentWord.count >= gates.minPrefixLength else { return nil }
         let cands = memory.wordCandidates(withPrefix: currentWord)

@@ -11,7 +11,8 @@ struct LabsPane: View {
                 Toggle("Enable mid-line completions", isOn: $store.state.global.midLineEnabled)
                 Text("Show completions even when text follows the cursor on the same line. Completions continue your sentence forward from the cursor rather than filling gaps. Experimental — expect rough edges; turn it off per-app in App Settings if it gets in the way.")
                     .font(.caption).foregroundStyle(.secondary)
-                Text("“Show alternative suggestions” arrives with a later update.")
+                Toggle("Show alternative suggestions", isOn: $store.state.global.showAlternatives)
+                Text("When your typing history has more than one likely completion, press ⌥` (Option-backtick) to cycle through the alternatives; the accept key takes the one shown. Personalization must be on. Experimental — turn it off per-app in App Settings if it gets in the way.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
