@@ -126,6 +126,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Task { await engine.preload() }
         NSLog("Inkling: pre-warming model \(ModelConfig.currentModelName)")
+
+        if ModelCatalog.availableModels(in: ModelConfig.modelsRoot).isEmpty {
+            NSLog("Inkling: no model installed — opening Model pane for first-run download")
+            settingsWindow.show(select: .model)
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
