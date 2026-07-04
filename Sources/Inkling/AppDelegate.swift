@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = SettingsStore.shared
     private let settingsWindow = SettingsWindowController()
     private let overlay = OverlayWindow()
+    private let clipboardProvider = ClipboardContextProvider()
     private var engine = MLXEngine(modelDirectory: ModelConfig.modelDirectory)
     private let debouncer = Debouncer(delay: ModelConfig.suggestionDebounceSeconds)
     private var statusItem: NSStatusItem?
@@ -378,6 +379,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? EffectiveSettings.customInstructions(
                 state: settings.state, bundleID: FrontmostApp.bundleID)
             : nil
+        // Recently-copied clipboard text as context (per-app gated, default off).
+        // Resolved on the main actor here, then captured into the Task below.
+        let clipboard: String? = EffectiveSettings.clipboardContextEnabled(
+            state: settings.state, bundleID: FrontmostApp.bundleID)
+            ? clipboardProvider.freshText(window: 60, now: Date())
+            : nil
         suggestionTask?.cancel()
         suggestionTask = Task { [weak self] in
             guard let engine = self?.engine else { return }
@@ -386,7 +393,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // model regurgitate those words instead of continuing (commit a8e524e).
             let raw = await engine.suggestion(
                 for: context, currentWordIsComplete: currentWordIsComplete,
-                instructions: instructions)
+                instructions: instructions, clipboard: clipboard)
             if Task.isCancelled { return }
             // Mid-line: drop a continuation that restates the text after the caret.
             let suggestion = (!context.isAtLineEnd
