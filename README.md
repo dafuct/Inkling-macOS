@@ -7,9 +7,8 @@ you accept them word-by-word — all running locally on Apple Silicon via
 
 > **Status:** personal, work-in-progress project.
 >
-> **Not affiliated with Cotypist.** Inkling is a from-scratch, educational
-> reimplementation inspired by the commercial app [Cotypist](https://cotypist.app).
-> It is independent software and is not endorsed by or connected to it.
+> Inkling is a from-scratch, educational, independent on-device autocomplete
+> app for macOS.
 
 ## How it works
 

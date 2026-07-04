@@ -14,7 +14,7 @@ Tested on macOS 26.5, Apple Silicon. App: **Inkling** (dev build, ad-hoc signed,
 - Swift 6 strict concurrency vs. unannotated C frameworks → Inkling target builds in Swift language mode 5.
 - `kAXSecureTextFieldRole` not bridged into Swift → check role AND subrole against the literal `"AXSecureTextField"`.
 - `AXBoundsForRange` fails at end-of-text → fall back to the preceding character's trailing edge.
-- The real (commercial) Cotypist was installed → dev app renamed to Inkling to avoid TCC/process/Tab clashes.
+- A conflicting commercial autocomplete app was installed → dev app renamed to Inkling to avoid TCC/process/Tab clashes.
 - Unified-log redaction hid `NSLog` content → diagnosed by running the binary directly so stderr was unredacted.
 
 ## Known limitations / carry into Phase 1

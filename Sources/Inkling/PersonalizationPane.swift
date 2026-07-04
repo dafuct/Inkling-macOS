@@ -1,7 +1,7 @@
 import InklingCore
 import SwiftUI
 
-/// Cotypist's "Typing History" screen: master collect toggle, the
+/// The "Typing History" screen: master collect toggle, the
 /// store-without-accepted sub-toggle, the personalize-word-choice slider, and
 /// the existing-data count + Delete All.
 struct PersonalizationPane: View {

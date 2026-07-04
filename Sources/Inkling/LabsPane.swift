@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Cotypist Labs: experimental features. Currently the global mid-line
+/// Labs: experimental features. Currently the global mid-line
 /// completions toggle; alternative suggestions (subproject H) will join here.
 struct LabsPane: View {
     @Bindable var store = SettingsStore.shared

@@ -20,8 +20,7 @@ enum ModelConfig {
         return ModelInstallLocator.readRoot(
             bundledModels: bundled, installRoot: installRoot, devModels: dev)
     }()
-    /// Fallback model when none is selected (best quality; the same family
-    /// Cotypist runs).
+    /// Fallback model when none is selected (best quality).
     static let defaultModelName = "gemma-4-e4b-it-4bit"
 
     static func directory(for name: String) -> URL {

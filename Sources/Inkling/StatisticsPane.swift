@@ -2,7 +2,7 @@ import Charts
 import InklingCore
 import SwiftUI
 
-/// Cotypist's Statistics screen: Today's Activity, a completion-statistics bar
+/// The Statistics screen: Today's Activity, a completion-statistics bar
 /// chart with Time Range / Group By / Metric selectors, and Total / Daily
 /// Average / Estimated Time Saved.
 struct StatisticsPane: View {

@@ -1,7 +1,7 @@
 import InklingCore
 import SwiftUI
 
-/// Cotypist's "Context" screen: clipboard (G1) and screen/OCR (G2) context.
+/// The "Context" screen: clipboard (G1) and screen/OCR (G2) context.
 struct ContextPane: View {
     @Bindable var store = SettingsStore.shared
     @State private var screenAuthorized = ScreenContextProvider.isAuthorized()

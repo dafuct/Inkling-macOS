@@ -64,7 +64,7 @@ public struct AppOverrides: Codable, Equatable, Sendable {
     }
 }
 
-/// Usage bookkeeping behind the App Settings list (Cotypist's per-app counters).
+/// Usage bookkeeping behind the App Settings list (per-app counters).
 public struct AppUsageInfo: Codable, Equatable, Sendable {
     public var displayName: String
     public var suggestionsShown: Int

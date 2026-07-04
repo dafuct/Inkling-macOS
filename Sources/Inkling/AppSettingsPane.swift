@@ -3,7 +3,7 @@ import InklingCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Cotypist-style per-app settings: searchable app list (most used first) on
+/// Per-app settings: searchable app list (most used first) on
 /// the left, the selected app's overrides form on the right.
 struct AppSettingsPane: View {
     @Bindable var store = SettingsStore.shared
@@ -88,7 +88,7 @@ struct AppSettingsPane: View {
     }
 }
 
-/// One per-app override with Cotypist's "Default (on/off)" / "On" / "Off" choices.
+/// One per-app override with "Default (on/off)" / "On" / "Off" choices.
 struct TriStatePicker: View {
     let label: String
     let caption: String
