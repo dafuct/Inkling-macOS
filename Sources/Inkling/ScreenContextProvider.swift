@@ -56,7 +56,11 @@ final class ScreenContextProvider {
             let text = await Self.captureAndOCR(pid: pid)
             await MainActor.run {
                 guard let self else { return }
-                if let text { self.cache = Cache(text: text, capturedAt: now, windowKey: key) }
+                // Stamp the moment the capture actually completed, not when the
+                // refresh was requested — capture+OCR can take 100s of ms, so
+                // using the request time would make the cache read as fresher than
+                // it is against recentText's freshness window.
+                if let text { self.cache = Cache(text: text, capturedAt: Date(), windowKey: key) }
                 self.isCapturing = false
             }
         }
