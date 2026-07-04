@@ -31,6 +31,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// True when the next accept is the FIRST chunk of the currently-shown
     /// suggestion — set on every fresh show, consumed on the first accept.
     private var firstChunkPending = false
+    /// True while the currently-shown suggestion is mid-line (text follows the
+    /// caret), so the overlay draws a background pill. Retained across word-by-
+    /// word accept; reset on dismiss.
+    private var suggestionMidLine = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -248,18 +252,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The tap is AHEAD of the AX value (it sees keys before the app inserts
         // them), so require consistency, not exact equality — else word completion
         // never fires. Only at line end: mid-line ghost text would overlap.
+        let midLineOK = EffectiveSettings.midLineEnabled(
+            state: settings.state, bundleID: FrontmostApp.bundleID)
         guard SuggestionSync.consistent(recorded: recorder.currentWord, live: ctx.currentWord),
-              ctx.isAtLineEnd else {
+              ctx.isAtLineEnd || midLineOK else {
             NSLog("Inkling: memory skip rec=\"\(recorder.currentWord)\" ax=\"\(ctx.currentWord)\" lineEnd=\(ctx.isAtLineEnd)")
             return false
         }
+        // Mid-line: don't offer a completion that just restates what follows the
+        // caret (it would duplicate on accept). `suffix` here is the completion
+        // text; `ctx.lineSuffix` is the trailing document text.
+        if !ctx.isAtLineEnd,
+           SuffixRestateGuard.restates(continuation: suffix, suffix: ctx.lineSuffix) {
+            return false
+        }
+        suggestionMidLine = !ctx.isAtLineEnd
 
         settings.recordSuggestionShown(bundleID: FrontmostApp.bundleID, appName: FrontmostApp.name)
         firstChunkPending = true
         suggestionSource = .memory
         memoryExactRepeat = hit.isExactRepeat
         currentSuggestion = suffix
-        overlay.show(text: suffix, caretBounds: bounds, font: readout.font)
+        overlay.show(text: suffix, caretBounds: bounds, font: readout.font, background: suggestionMidLine)
         eventTap.suggestionVisible = true
         NSLog("Inkling: memory \"\(suffix)\" for \"\(recorder.currentWord)\"")
         return true
@@ -274,6 +288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         memoryExactRepeat = false
         accepting = false
         firstChunkPending = false
+        suggestionMidLine = false
     }
 
     private func refreshSuggestion() {
@@ -302,8 +317,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !context.prefix.hasSuffix(recorder.currentWord) || recorder.currentWord.isEmpty && !context.currentWord.isEmpty {
             recorder.reset()
         }
-        // Only suggest at line end; mid-line ghost text would overlap what follows.
-        guard context.isAtLineEnd else {
+        // Mid-line suggestions are allowed when enabled for this app; otherwise
+        // line-end only (mid-line ghost text would overlap what follows).
+        let midLineOK = EffectiveSettings.midLineEnabled(
+            state: settings.state, bundleID: FrontmostApp.bundleID)
+        guard context.isAtLineEnd || midLineOK else {
             if suggestionSource != .memory { dismiss() }
             return
         }
@@ -325,10 +343,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Personalization is deterministic (the memory tier above), NOT a
             // frequent-vocab hint injected into the LLM prompt — that made the
             // model regurgitate those words instead of continuing (commit a8e524e).
-            let suggestion = await engine.suggestion(
+            let raw = await engine.suggestion(
                 for: context, currentWordIsComplete: currentWordIsComplete,
                 instructions: instructions)
             if Task.isCancelled { return }
+            // Mid-line: drop a continuation that restates the text after the caret.
+            let suggestion = (!context.isAtLineEnd
+                && SuffixRestateGuard.restates(continuation: raw, suffix: context.lineSuffix))
+                ? "" : raw
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 let shown: ShownSuggestion
@@ -355,8 +377,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.firstChunkPending = true
                     self.suggestionSource = .llm
                     self.memoryExactRepeat = false
+                    self.suggestionMidLine = !context.isAtLineEnd
                     self.currentSuggestion = suggestion
-                    self.overlay.show(text: suggestion, caretBounds: bounds, font: font)
+                    self.overlay.show(text: suggestion, caretBounds: bounds, font: font,
+                                      background: self.suggestionMidLine)
                     self.eventTap.suggestionVisible = true
                     NSLog("Inkling: showing \"\(suggestion)\"")
                 }
@@ -393,7 +417,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let readout = FocusContextProvider.currentReadout(),
                   let bounds = readout.caretBounds else { return }
             self.currentSuggestion = remainder
-            self.overlay.show(text: remainder, caretBounds: bounds, font: readout.font)
+            self.overlay.show(text: remainder, caretBounds: bounds, font: readout.font,
+                              background: self.suggestionMidLine)
             self.eventTap.suggestionVisible = true
         }
     }
