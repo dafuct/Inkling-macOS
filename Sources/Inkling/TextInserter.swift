@@ -23,4 +23,23 @@ enum TextInserter {
             }
         }
     }
+
+    /// Replaces the `count` characters immediately before the caret with `text`:
+    /// synthesizes `count` marker-tagged backspaces, then types `text`. Marker-
+    /// tagged so our own EventTapController ignores the edits (same as `insert`).
+    static func replace(deleting count: Int, insert text: String) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let backspace: CGKeyCode = 0x33  // kVK_Delete
+        for _ in 0..<max(0, count) {
+            if let down = CGEvent(keyboardEventSource: source, virtualKey: backspace, keyDown: true) {
+                down.setIntegerValueField(.eventSourceUserData, value: marker)
+                down.post(tap: .cgSessionEventTap)
+            }
+            if let up = CGEvent(keyboardEventSource: source, virtualKey: backspace, keyDown: false) {
+                up.setIntegerValueField(.eventSourceUserData, value: marker)
+                up.post(tap: .cgSessionEventTap)
+            }
+        }
+        insert(text)
+    }
 }
