@@ -4,6 +4,7 @@ import AppKit
 /// No OS copy-timestamp exists, so freshness is stamped when a clipboard change
 /// is first observed. Concealed/transient/auto-generated clipboards (set by
 /// password managers) are never returned. Main-actor use only.
+@MainActor
 final class ClipboardContextProvider {
     private let pasteboard: NSPasteboard
     private var lastChangeCount: Int

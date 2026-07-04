@@ -9,6 +9,7 @@ import Vision
 /// and the two entry points; the capture+OCR runs on a background task and hops
 /// back to the main actor to store its result. Requires Screen Recording
 /// authorization; a no-op until granted.
+@MainActor
 final class ScreenContextProvider {
     private struct Cache { let text: String; let capturedAt: Date; let windowKey: String }
     private var cache: Cache?
@@ -70,12 +71,12 @@ final class ScreenContextProvider {
 
     /// Capture the frontmost app's focused on-screen window and OCR it. nil on any
     /// failure. Never logs the image or the text.
-    private static func captureAndOCR(pid: pid_t) async -> String? {
+    nonisolated private static func captureAndOCR(pid: pid_t) async -> String? {
         guard let image = await captureFocusedWindow(pid: pid) else { return nil }
         return await recognizeText(in: image)
     }
 
-    private static func captureFocusedWindow(pid: pid_t) async -> CGImage? {
+    nonisolated private static func captureFocusedWindow(pid: pid_t) async -> CGImage? {
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(
                 false, onScreenWindowsOnly: true)
@@ -98,7 +99,7 @@ final class ScreenContextProvider {
         }
     }
 
-    private static func recognizeText(in image: CGImage) async -> String? {
+    nonisolated private static func recognizeText(in image: CGImage) async -> String? {
         await withCheckedContinuation { continuation in
             let request = VNRecognizeTextRequest { request, _ in
                 let lines = (request.results as? [VNRecognizedTextObservation] ?? [])

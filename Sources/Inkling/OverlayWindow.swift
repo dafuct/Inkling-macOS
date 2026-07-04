@@ -1,6 +1,7 @@
 import AppKit
 
 /// A floating, non-interactive window that paints gray ghost text at a point.
+@MainActor
 final class OverlayWindow {
     private let window: NSWindow
     private let label: NSTextField

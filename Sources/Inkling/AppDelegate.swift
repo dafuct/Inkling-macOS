@@ -1,6 +1,7 @@
 import AppKit
 import InklingCore
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let eventTap = EventTapController()
     private let settings = SettingsStore.shared
@@ -54,18 +55,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             forName: .inklingModelChanged, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.reloadEngine()
+            MainActor.assumeIsolated { self?.reloadEngine() }
         }
 
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.inputCollector.onAppSwitched()
+            MainActor.assumeIsolated { self?.inputCollector.onAppSwitched() }
         }
         NotificationCenter.default.addObserver(
             forName: .inklingClearLearnedData, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.clearLearned()
+            MainActor.assumeIsolated { self?.clearLearned() }
         }
 
         let trusted = PermissionsManager.isAccessibilityTrusted(prompt: true)
@@ -76,9 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         eventTap.onKeyDown = { [weak self] in self?.onKeyDown() }
-        eventTap.onAccept = { [weak self] in DispatchQueue.main.async { self?.acceptNextWord() } }
-        eventTap.onDismiss = { [weak self] in DispatchQueue.main.async { self?.dismiss() } }
-        eventTap.onCycle = { [weak self] in DispatchQueue.main.async { self?.cycleAlternative() } }
+        eventTap.onAccept = { [weak self] in DispatchQueue.main.async { MainActor.assumeIsolated { self?.acceptNextWord() } } }
+        eventTap.onDismiss = { [weak self] in DispatchQueue.main.async { MainActor.assumeIsolated { self?.dismiss() } } }
+        eventTap.onCycle = { [weak self] in DispatchQueue.main.async { MainActor.assumeIsolated { self?.cycleAlternative() } } }
         eventTap.shouldSwallowAccept = { [weak self] in
             guard let self else { return true }
             return EffectiveSettings.acceptKeyEnabled(
@@ -98,21 +99,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         eventTap.onType = { [weak self] s in
             DispatchQueue.main.async {
-                guard let self else { return }
-                // Capture-time secure-field gate: never buffer characters typed
-                // into a password field, and drop any partial word carried in, so
-                // a secret can't survive in the buffer and be committed/learned
-                // after focus later moves to a normal field.
-                if FocusContextProvider.isSecureFieldFocused() {
-                    self.recorder.reset()
-                    return
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    // Capture-time secure-field gate: never buffer characters typed
+                    // into a password field, and drop any partial word carried in, so
+                    // a secret can't survive in the buffer and be committed/learned
+                    // after focus later moves to a normal field.
+                    if FocusContextProvider.isSecureFieldFocused() {
+                        self.recorder.reset()
+                        return
+                    }
+                    self.recorder.append(s)
+                    self.inputCollector.onKeystroke()
                 }
-                self.recorder.append(s)
-                self.inputCollector.onKeystroke()
             }
         }
         eventTap.onDelete = { [weak self] in
-            DispatchQueue.main.async { self?.recorder.backspace() }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.recorder.backspace() } }
         }
 
         if eventTap.start() {
@@ -231,17 +234,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// type), then debounce a fresh request so we only query after a pause.
     private func onKeyDown() {
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.dismiss()
-            let bundleID = FrontmostApp.bundleID
-            let completionsOn = EffectiveSettings.completionsEnabled(
-                state: self.settings.state, bundleID: bundleID)
-            let autocorrectOn = self.autocorrectActive(bundleID: bundleID)
-            guard completionsOn || autocorrectOn else { return }
-            // Tier 1 (instant memory) only when completions are on; corrections
-            // wait for the debounce (a typing pause = "done with this word").
-            if completionsOn { _ = self.tryMemorySuggestion() }
-            self.debouncer.schedule { [weak self] in self?.refreshSuggestion() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.dismiss()
+                let bundleID = FrontmostApp.bundleID
+                let completionsOn = EffectiveSettings.completionsEnabled(
+                    state: self.settings.state, bundleID: bundleID)
+                let autocorrectOn = self.autocorrectActive(bundleID: bundleID)
+                guard completionsOn || autocorrectOn else { return }
+                // Tier 1 (instant memory) only when completions are on; corrections
+                // wait for the debounce (a typing pause = "done with this word").
+                if completionsOn { _ = self.tryMemorySuggestion() }
+                self.debouncer.schedule { [weak self] in self?.refreshSuggestion() }
+            }
         }
     }
 
@@ -534,13 +539,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // line. The next real keystroke calls dismiss(), which clears the lock.
         guard !remainder.isEmpty else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            guard let self else { return }
-            guard let readout = FocusContextProvider.currentReadout(),
-                  let bounds = readout.caretBounds else { return }
-            self.currentSuggestion = remainder
-            self.overlay.show(text: remainder, caretBounds: bounds, font: readout.font,
-                              background: self.suggestionMidLine)
-            self.eventTap.suggestionVisible = true
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                guard let readout = FocusContextProvider.currentReadout(),
+                      let bounds = readout.caretBounds else { return }
+                self.currentSuggestion = remainder
+                self.overlay.show(text: remainder, caretBounds: bounds, font: readout.font,
+                                  background: self.suggestionMidLine)
+                self.eventTap.suggestionVisible = true
+            }
         }
     }
 

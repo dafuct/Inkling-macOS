@@ -4,6 +4,7 @@ import InklingCore
 
 /// Owns a CGEventTap. When a suggestion is visible it swallows backtick (accept)
 /// and Esc (dismiss); otherwise it passes keys through and reports them.
+@MainActor
 final class EventTapController {
     var suggestionVisible = false
     var onKeyDown: (() -> Void)?
@@ -30,7 +31,9 @@ final class EventTapController {
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             let controller = Unmanaged<EventTapController>.fromOpaque(refcon!).takeUnretainedValue()
-            return controller.handle(type: type, event: event)
+            // The tap is installed on the main run loop, so this fires on the main
+            // thread; bridge into the @MainActor handler.
+            return MainActor.assumeIsolated { controller.handle(type: type, event: event) }
         }
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
