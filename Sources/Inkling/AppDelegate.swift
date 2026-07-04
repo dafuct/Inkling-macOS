@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store: inputStore,
         isCollecting: { [weak self] in self?.settings.state.global.collectInputs ?? false },
         storeWithoutAccepted: { [weak self] in self?.settings.state.global.storeWithoutAccepted ?? true })
-    private enum SuggestionSource { case none, memory, llm }
+    private enum SuggestionSource { case none, memory, llm, correction }
     private var suggestionSource: SuggestionSource = .none
     /// True when the currently-shown memory suggestion was an exact word-repeat
     /// (trusted over the LLM). Meaningful only while `suggestionSource == .memory`.
@@ -35,6 +35,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// caret), so the overlay draws a background pill. Retained across word-by-
     /// word accept; reset on dismiss.
     private var suggestionMidLine = false
+    /// Pure current-word typo-correction policy; the system spell checker backs it.
+    private let autocorrector = Autocorrector(
+        checker: SystemSpellChecker(),
+        isRealWord: { WordCompleteness.isDictionaryWord($0) })
+    /// The correction currently offered (source == .correction); nil otherwise.
+    private var currentCorrection: Correction?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -220,13 +226,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.dismiss()
-            guard EffectiveSettings.completionsEnabled(
-                state: self.settings.state, bundleID: FrontmostApp.bundleID) else { return }
-            // Tier 1: show an instant memory suggestion if we have one — but do
-            // NOT return. Tier 2 (the LLM) still runs and may upgrade it.
-            _ = self.tryMemorySuggestion()
+            let bundleID = FrontmostApp.bundleID
+            let completionsOn = EffectiveSettings.completionsEnabled(
+                state: self.settings.state, bundleID: bundleID)
+            let autocorrectOn = self.autocorrectActive(bundleID: bundleID)
+            guard completionsOn || autocorrectOn else { return }
+            // Tier 1 (instant memory) only when completions are on; corrections
+            // wait for the debounce (a typing pause = "done with this word").
+            if completionsOn { _ = self.tryMemorySuggestion() }
             self.debouncer.schedule { [weak self] in self?.refreshSuggestion() }
         }
+    }
+
+    /// Autocorrect runs when the master switch and the per-app autocorrect gate
+    /// are both on — independent of the per-app completions toggle.
+    private func autocorrectActive(bundleID: String?) -> Bool {
+        settings.state.global.enabled
+            && EffectiveSettings.autocorrectEnabled(state: settings.state, bundleID: bundleID)
     }
 
     /// Synchronous deterministic completion from the recorder buffer. Returns
@@ -289,15 +305,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         accepting = false
         firstChunkPending = false
         suggestionMidLine = false
+        currentCorrection = nil
+    }
+
+    /// Show the corrected word as a tinted pill at the caret (source .correction).
+    private func showCorrection(_ correction: Correction, bounds: CGRect, font: NSFont?) {
+        settings.recordSuggestionShown(bundleID: FrontmostApp.bundleID, appName: FrontmostApp.name)
+        firstChunkPending = true
+        suggestionSource = .correction
+        memoryExactRepeat = false
+        suggestionMidLine = false
+        currentCorrection = correction
+        currentSuggestion = correction.replacement
+        overlay.show(text: correction.replacement, caretBounds: bounds, font: font, correction: true)
+        eventTap.suggestionVisible = true
+        NSLog("Inkling: correction \"\(correction.original)\" -> \"\(correction.replacement)\"")
     }
 
     private func refreshSuggestion() {
         // Focus may have moved to an excluded app during the debounce window.
-        guard EffectiveSettings.completionsEnabled(
-            state: settings.state, bundleID: FrontmostApp.bundleID) else {
-            dismiss()
-            return
-        }
+        let bundleID = FrontmostApp.bundleID
+        let completionsOn = EffectiveSettings.completionsEnabled(state: settings.state, bundleID: bundleID)
+        let autocorrectOn = autocorrectActive(bundleID: bundleID)
+        guard completionsOn || autocorrectOn else { dismiss(); return }
         // An instant memory suggestion (Tier 1) may already be on screen; the LLM
         // (Tier 2) refines it. On a transient AX-read failure or non-line-end, KEEP
         // a shown memory suggestion (it was AX-validated when shown) rather than
@@ -326,6 +356,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let font = readout.font
+        // Current-word typo correction (independent of the completions gate).
+        let correction: Correction? = autocorrectOn
+            ? autocorrector.correction(for: context.currentWord, memory: memory)
+            : nil
+        // Autocorrect-only app (completions off): no LLM tier — show the
+        // correction if there is one, otherwise nothing.
+        guard completionsOn else {
+            if let correction { showCorrection(correction, bounds: bounds, font: font) }
+            else { dismiss() }
+            return
+        }
         // Whether the word under the caret is a complete DICTIONARY word. The
         // raw-continuation engine uses this to decide mid-word backup (finish
         // the word first); deliberately dictionary-only — memory jargon like
@@ -358,6 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case .none: shown = .none
                 case .memory: shown = .memory(exactRepeat: self.memoryExactRepeat)
                 case .llm: shown = .llm
+                case .correction: shown = .none
                 }
                 switch SuggestionArbiter.decide(
                     shown: shown, visibleText: self.currentSuggestion,
@@ -366,7 +408,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case .keep:
                     return
                 case .dismiss:
-                    self.dismiss()
+                    // Completion tiers declined — fall back to a correction if one
+                    // is available and nothing else is on screen.
+                    if let correction, self.suggestionSource == .none,
+                       !context.currentWord.isEmpty {
+                        self.showCorrection(correction, bounds: bounds, font: font)
+                    } else {
+                        self.dismiss()
+                    }
                 case .replaceWithLLM:
                     // Count new shows only — an LLM upgrade of a visible memory
                     // suggestion was already counted when the memory tier showed.
@@ -393,6 +442,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// re-query and change the completion. Our inserted keystrokes are tagged and
     /// ignored by the event tap, so they don't trigger a fresh query.
     private func acceptNextWord() {
+        if suggestionSource == .correction, let correction = currentCorrection {
+            applyCorrection(correction)
+            return
+        }
         inputCollector.noteAccepted()
         accepting = true
         let split = SuggestionSplitter.nextChunk(of: currentSuggestion)
@@ -421,6 +474,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                               background: self.suggestionMidLine)
             self.eventTap.suggestionVisible = true
         }
+    }
+
+    /// Accepting a correction is atomic: re-validate the live word still matches,
+    /// then delete it and type the replacement. No word-by-word cycling.
+    private func applyCorrection(_ correction: Correction) {
+        inputCollector.noteAccepted()
+        guard let readout = FocusContextProvider.currentReadout() else { dismiss(); return }
+        let ctx = TextContext(fullText: readout.text, caretIndex: readout.caretIndex)
+        guard ctx.currentWord == correction.original else { dismiss(); return }
+        overlay.hide()
+        eventTap.suggestionVisible = false
+        TextInserter.replace(deleting: correction.original.count, insert: correction.replacement)
+        NSLog("Inkling: applied correction \"\(correction.original)\" -> \"\(correction.replacement)\"")
+        statsStore.record(CompletionEvent(
+            timestamp: Date(), appBundleID: FrontmostApp.bundleID,
+            words: 1, chars: correction.replacement.count, isFirstChunk: firstChunkPending))
+        firstChunkPending = false
+        dismiss()
     }
 }
 

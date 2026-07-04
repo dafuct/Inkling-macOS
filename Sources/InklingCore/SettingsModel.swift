@@ -82,7 +82,6 @@ public struct GlobalSettings: Codable, Equatable, Sendable {
     public var customInstructions: String    // global custom AI instructions (subproject D)
     public var instructionPreambleEnabled: Bool  // default-off gate for prompt injection
     public var midLineEnabled: Bool          // consumed by subproject E
-    // TODO(subproject F): defaults true but no autocorrect engine exists yet — revisit so it doesn't silently enable on first ship.
     public var autocorrectEnabled: Bool      // consumed by subproject F
     public var disableAcceptKeyDefault: Bool
 
