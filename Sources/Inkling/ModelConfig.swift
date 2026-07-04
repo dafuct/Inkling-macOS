@@ -3,22 +3,22 @@ import InklingCore
 
 /// Chosen local model + generation settings + prompt for the real engine.
 enum ModelConfig {
-    /// Root folder holding installed model directories. Resolved portably so the
-    /// app runs as a distributed bundle, a user install, or a dev checkout:
-    ///   1. models bundled inside the app (Contents/Resources/models),
-    ///   2. ~/Library/Application Support/Inkling/models,
-    ///   3. the developer source checkout (fallback).
-    static let modelsRoot: URL = {
+    /// The single writable install destination for downloaded models:
+    /// ~/Library/Application Support/Inkling/models (created on demand).
+    static let installRoot: URL = {
         let fm = FileManager.default
-        if let res = Bundle.main.resourceURL {
-            let bundled = res.appendingPathComponent("models", isDirectory: true)
-            if fm.fileExists(atPath: bundled.path) { return bundled }
-        }
-        if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let dir = appSupport.appendingPathComponent("Inkling/models", isDirectory: true)
-            if fm.fileExists(atPath: dir.path) { return dir }
-        }
-        return URL(filePath: "/Users/makar/dev/own-cotypist/models")
+        let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(filePath: NSHomeDirectory()).appending(path: "Library/Application Support")
+        return ModelInstallLocator.installRoot(appSupport: appSupport)
+    }()
+
+    /// Root folder searched for installed models. Prefers models bundled inside
+    /// the app, then the install root once populated, then a dev checkout.
+    static let modelsRoot: URL = {
+        let bundled = Bundle.main.resourceURL?.appendingPathComponent("models", isDirectory: true)
+        let dev = URL(filePath: "/Users/makar/dev/own-cotypist/models")
+        return ModelInstallLocator.readRoot(
+            bundledModels: bundled, installRoot: installRoot, devModels: dev)
     }()
     /// Fallback model when none is selected (best quality; the same family
     /// Cotypist runs).

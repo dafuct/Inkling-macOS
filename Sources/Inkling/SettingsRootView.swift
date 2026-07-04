@@ -4,6 +4,7 @@ import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general = "General"
+    case model = "Model"
     case appSettings = "App Settings"
     case personalization = "Personalization"
     case context = "Context"
@@ -16,6 +17,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .general: "gearshape"
+        case .model: "arrow.down.circle"
         case .appSettings: "app.badge.checkmark"
         case .personalization: "brain.head.profile"
         case .context: "photo.on.rectangle"
@@ -27,7 +29,11 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 }
 
 struct SettingsRootView: View {
-    @State private var selection: SettingsSection? = .general
+    @State private var selection: SettingsSection?
+
+    init(initialSection: SettingsSection = .general) {
+        _selection = State(initialValue: initialSection)
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -39,6 +45,8 @@ struct SettingsRootView: View {
             switch selection ?? .general {
             case .general:
                 GeneralPane()
+            case .model:
+                ModelPane()
             case .appSettings:
                 AppSettingsPane()
             case .personalization:
