@@ -128,7 +128,7 @@ struct AppOverridesForm: View {
                     choice: binding(\.midLine))
                 TriStatePicker(
                     label: "Enable autocorrect",
-                    caption: "Stored now; takes effect when autocorrect ships (subproject F).",
+                    caption: "Correct the current word's typos; accept the fix with the accept key.",
                     globalDefault: store.state.global.autocorrectEnabled,
                     choice: binding(\.autocorrect))
                 TriStatePicker(
