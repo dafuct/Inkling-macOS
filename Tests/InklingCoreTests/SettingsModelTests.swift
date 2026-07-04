@@ -110,6 +110,18 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(decoded.useScreenContext)
     }
 
+    func test_showAlternatives_defaultsFalse() {
+        XCTAssertFalse(GlobalSettings().showAlternatives)
+    }
+
+    func test_showAlternatives_roundTrips() throws {
+        var g = GlobalSettings()
+        g.showAlternatives = true
+        let data = try JSONEncoder().encode(g)
+        let decoded = try JSONDecoder().decode(GlobalSettings.self, from: data)
+        XCTAssertTrue(decoded.showAlternatives)
+    }
+
     func test_appsSortedByUsage_ordersByCountThenName() {
         var state = SettingsState()
         let t = Date(timeIntervalSince1970: 0)
