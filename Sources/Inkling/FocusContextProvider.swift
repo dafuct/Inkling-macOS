@@ -113,7 +113,7 @@ enum FocusContextProvider {
             return rect.height > 0 ? rect : nil
         }
 
-        let caretBounds = CaretGeometry.caretRect(
+        var caretBounds = CaretGeometry.caretRect(
             prevChar: caretIndex > 0 ? bounds(forLocation: caretIndex - 1) : nil,
             atCaret: bounds(forLocation: caretIndex),
             marker: textMarkerCaretBounds())
@@ -144,6 +144,139 @@ enum FocusContextProvider {
             return nil
         }
         let caretFont = font(forLocation: max(0, caretIndex - 1)) ?? font(forLocation: caretIndex)
+
+        // Fallback caret-geometry ladder for editors that refuse per-glyph bounds
+        // even after full AX is enabled — notably Electron/Chromium (Slack,
+        // Discord, Notion), where the focused node answers text but not glyph
+        // rects. Each rung is sanity-checked against the field frame so a bad
+        // reading degrades to "no suggestion", never a mis-placed one. Only runs
+        // when the reliable rungs above return nil, so native apps never pay for
+        // it. See wiki [[inkling-caret-geometry]].
+        if caretBounds == nil {
+            // The focused element's frame, in global top-left coords, used as an
+            // anchor and as a sanity box for the two rungs below.
+            func frame(of el: AXUIElement) -> CGRect? {
+                var ref: CFTypeRef?
+                if AXUIElementCopyAttributeValue(el, "AXFrame" as CFString, &ref) == .success,
+                   let ref, CFGetTypeID(ref) == AXValueGetTypeID() {
+                    var r = CGRect.zero
+                    if AXValueGetValue(ref as! AXValue, .cgRect, &r), r.height > 0 { return r }
+                }
+                var posRef: CFTypeRef?
+                var sizeRef: CFTypeRef?
+                guard AXUIElementCopyAttributeValue(el, kAXPositionAttribute as CFString, &posRef) == .success,
+                      AXUIElementCopyAttributeValue(el, kAXSizeAttribute as CFString, &sizeRef) == .success,
+                      let posRef, let sizeRef,
+                      CFGetTypeID(posRef) == AXValueGetTypeID(), CFGetTypeID(sizeRef) == AXValueGetTypeID()
+                else { return nil }
+                var p = CGPoint.zero, s = CGSize.zero
+                guard AXValueGetValue(posRef as! AXValue, .cgPoint, &p),
+                      AXValueGetValue(sizeRef as! AXValue, .cgSize, &s) else { return nil }
+                return CGRect(origin: p, size: s)
+            }
+            let elementFrame = frame(of: element)
+
+            func bounds(of node: AXUIElement, forRange r: CFRange) -> CGRect? {
+                guard r.location >= 0, r.length >= 0 else { return nil }
+                var range = r
+                guard let v = AXValueCreate(.cfRange, &range) else { return nil }
+                var ref: CFTypeRef?
+                guard AXUIElementCopyParameterizedAttributeValue(
+                    node, kAXBoundsForRangeParameterizedAttribute as CFString, v, &ref) == .success,
+                      let ref, CFGetTypeID(ref) == AXValueGetTypeID() else { return nil }
+                var rect = CGRect.zero
+                guard AXValueGetValue(ref as! AXValue, .cgRect, &rect) else { return nil }
+                return rect
+            }
+
+            // Rung 4 — line geometry: some editors refuse a single-char range but
+            // answer for a whole line, so measure line-start→caret and take its
+            // trailing edge. Correct y/height even mid-line.
+            func lineBasedCaretBounds() -> CGRect? {
+                var lineRef: CFTypeRef?
+                guard AXUIElementCopyAttributeValue(
+                    element, kAXInsertionPointLineNumberAttribute as CFString, &lineRef) == .success,
+                      let lineNum = lineRef as? Int, lineNum >= 0 else { return nil }
+                var rangeRef: CFTypeRef?
+                guard AXUIElementCopyParameterizedAttributeValue(
+                    element, kAXRangeForLineParameterizedAttribute as CFString,
+                    NSNumber(value: lineNum), &rangeRef) == .success,
+                      let rangeRef, CFGetTypeID(rangeRef) == AXValueGetTypeID() else { return nil }
+                var lineRange = CFRange()
+                guard AXValueGetValue(rangeRef as! AXValue, .cfRange, &lineRange) else { return nil }
+                let prefixLen = caretIndex - lineRange.location
+                if prefixLen > 0,
+                   let b = bounds(of: element, forRange: CFRange(location: lineRange.location, length: prefixLen)),
+                   b.height > 0 {
+                    return CGRect(x: b.maxX, y: b.minY, width: 0, height: b.height)
+                }
+                if let lb = bounds(of: element, forRange: lineRange), lb.height > 0 {
+                    return CGRect(x: lb.minX, y: lb.minY, width: 0, height: lb.height)
+                }
+                return nil
+            }
+
+            // Rung 5 — descendant search: Electron nests the real text node under a
+            // wrapper, so BFS the subtree (hard-capped) for a node that answers
+            // caret geometry via its OWN selection.
+            func descendantCaretBounds() -> CGRect? {
+                func children(of node: AXUIElement) -> [AXUIElement] {
+                    var ref: CFTypeRef?
+                    guard AXUIElementCopyAttributeValue(node, kAXChildrenAttribute as CFString, &ref) == .success,
+                          let kids = ref as? [AXUIElement] else { return [] }
+                    return kids
+                }
+                func caretBoundsViaSelection(of node: AXUIElement) -> CGRect? {
+                    var rangeRef: CFTypeRef?
+                    guard AXUIElementCopyAttributeValue(
+                        node, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
+                          let rangeRef, CFGetTypeID(rangeRef) == AXValueGetTypeID() else { return nil }
+                    var sel = CFRange()
+                    guard AXValueGetValue(rangeRef as! AXValue, .cfRange, &sel) else { return nil }
+                    let loc = sel.location
+                    return CaretGeometry.caretRect(
+                        prevChar: loc > 0 ? bounds(of: node, forRange: CFRange(location: loc - 1, length: 1)) : nil,
+                        atCaret: bounds(of: node, forRange: CFRange(location: loc, length: 1)),
+                        marker: nil)
+                }
+                var queue = children(of: element)
+                var visited = 0
+                while !queue.isEmpty, visited < 80 {
+                    let node = queue.removeFirst()
+                    visited += 1
+                    if let r = caretBoundsViaSelection(of: node), r.height > 0 { return r }
+                    queue.append(contentsOf: children(of: node).prefix(40))
+                }
+                return nil
+            }
+
+            // Rung 6 — frame anchor: last resort for a SINGLE-LINE-ish field with
+            // no glyph geometry at all (a Slack-height composer). Measure the
+            // line prefix to estimate x. Hard-gated to short fields so a tall
+            // editor is never mis-anchored.
+            func frameAnchorCaretBounds() -> CGRect? {
+                guard let frame = elementFrame, frame.width > 0 else { return nil }
+                let f = caretFont ?? NSFont.systemFont(ofSize: NSFont.systemFontSize)
+                let lineH = max(f.ascender - f.descender + f.leading, f.pointSize * 1.2)
+                guard frame.height <= lineH * 2.2 else { return nil }   // single-line only
+                let ns = text as NSString
+                let clamped = max(0, min(caretIndex, ns.length))
+                let nl = ns.range(of: "\n", options: .backwards, range: NSRange(location: 0, length: clamped))
+                let start = nl.location == NSNotFound ? 0 : nl.location + 1
+                let prefix = ns.substring(with: NSRange(location: start, length: clamped - start))
+                let width = (prefix as NSString).size(withAttributes: [.font: f]).width
+                let x = frame.minX + width
+                guard x <= frame.maxX else { return nil }
+                return CGRect(x: x, y: frame.minY, width: 0, height: lineH)
+            }
+
+            caretBounds = lineBasedCaretBounds() ?? descendantCaretBounds()
+            // Reject any glyph-derived fallback that lands outside the field.
+            if let b = caretBounds, let f = elementFrame, !f.insetBy(dx: -8, dy: -8).intersects(b) {
+                caretBounds = nil
+            }
+            if caretBounds == nil { caretBounds = frameAnchorCaretBounds() }
+        }
 
         return CaretReadout(
             text: text, caretIndex: caretIndex, caretBounds: caretBounds, font: caretFont)

@@ -7,9 +7,11 @@ private struct FakeChecker: SpellChecker {
 }
 
 final class AutocorrectorTests: XCTestCase {
-    private func make(_ map: [String: String], real: Set<String> = []) -> Autocorrector {
+    private func make(_ map: [String: String], real: Set<String> = [],
+                      prefixes: Set<String> = []) -> Autocorrector {
         Autocorrector(checker: FakeChecker(map: map),
-                      isRealWord: { real.contains($0.lowercased()) })
+                      isRealWord: { real.contains($0.lowercased()) },
+                      isPrefixOfWord: { prefixes.contains($0.lowercased()) })
     }
 
     func test_correctsSimpleTypo() {
@@ -58,5 +60,20 @@ final class AutocorrectorTests: XCTestCase {
     func test_rejectsFarEdit() {
         let a = make(["cat": "elephant"])
         XCTAssertNil(a.correction(for: "cat", memory: PersonalMemory()))
+    }
+
+    /// "Hel" is not a typo — it's an unfinished "Hello"/"Help". A fragment that
+    /// is a valid prefix of a longer real word must never be "corrected".
+    func test_skipsPrefixOfRealWord() {
+        let a = make(["hel": "hey"], prefixes: ["hel"])
+        XCTAssertNil(a.correction(for: "Hel", memory: PersonalMemory()))
+    }
+
+    /// A genuine typo that is NOT a prefix of any real word is still corrected
+    /// even with the prefix guard active.
+    func test_correctsTypoThatIsNotAPrefix() {
+        let a = make(["teh": "the"], prefixes: ["hel", "hello"])
+        XCTAssertEqual(a.correction(for: "teh", memory: PersonalMemory()),
+                       Correction(original: "teh", replacement: "the"))
     }
 }

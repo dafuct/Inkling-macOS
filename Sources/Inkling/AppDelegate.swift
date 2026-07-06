@@ -45,7 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Pure current-word typo-correction policy; the system spell checker backs it.
     private let autocorrector = Autocorrector(
         checker: SystemSpellChecker(),
-        isRealWord: { WordCompleteness.isDictionaryWord($0) })
+        isRealWord: { WordCompleteness.isDictionaryWord($0) },
+        isPrefixOfWord: { SystemSpellChecker.isPrefixOfWord($0) })
     /// The correction currently offered (source == .correction); nil otherwise.
     private var currentCorrection: Correction?
 
@@ -396,6 +397,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         guard let bounds = readout.caretBounds else {
             NSLog("Inkling: caretBounds = nil (caret=\(readout.caretIndex))")
+            // Electron/Chromium apps (Slack, Discord, Notion) expose text but no
+            // caret geometry until full AX is enabled. Kick that once per app,
+            // then retry after the renderer rebuilds its tree so the suggestion
+            // appears without waiting for another keystroke.
+            if ElectronAXActivator.activateIfNeeded() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                    MainActor.assumeIsolated { self?.refreshSuggestion() }
+                }
+            }
             if suggestionSource != .memory { dismiss() }
             return
         }

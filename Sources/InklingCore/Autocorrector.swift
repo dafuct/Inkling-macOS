@@ -6,6 +6,7 @@ import Foundation
 public struct Autocorrector {
     private let checker: SpellChecker
     private let isRealWord: (String) -> Bool
+    private let isPrefixOfWord: (String) -> Bool
     private let minLength: Int
     private let maxEditDistance: Int
 
@@ -13,12 +14,19 @@ public struct Autocorrector {
     ///   - checker: the correction source (lowercased in, lowercased out).
     ///   - isRealWord: membership in the system dictionary (called with a
     ///     lowercased word). A correctly-spelled word is never "corrected".
+    ///   - isPrefixOfWord: true when the (lowercased) fragment is a valid prefix
+    ///     of one or more longer real words — i.e. the user is still mid-word.
+    ///     Such fragments ("hel" → "hello"/"help") are unfinished, not typos, so
+    ///     they must never be corrected. Defaults to always-false so callers that
+    ///     don't supply a prefix source keep the old behaviour.
     public init(checker: SpellChecker,
                 isRealWord: @escaping (String) -> Bool,
+                isPrefixOfWord: @escaping (String) -> Bool = { _ in false },
                 minLength: Int = 3,
                 maxEditDistance: Int = 2) {
         self.checker = checker
         self.isRealWord = isRealWord
+        self.isPrefixOfWord = isPrefixOfWord
         self.minLength = minLength
         self.maxEditDistance = maxEditDistance
     }
@@ -28,6 +36,7 @@ public struct Autocorrector {
         let lower = word.lowercased()
         guard !isRealWord(lower) else { return nil }        // real word: leave it
         guard !memory.knows(word: word) else { return nil }  // learned jargon/name: leave it
+        guard !isPrefixOfWord(lower) else { return nil }     // unfinished word, not a typo
         guard let candidate = checker.correction(for: lower) else { return nil }
         let candLower = candidate.lowercased()
         guard candLower != lower else { return nil }                       // identity
