@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import InklingCore
 
-/// Owns a CGEventTap. When a suggestion is visible it swallows backtick (accept)
+/// Owns a CGEventTap. When a suggestion is visible it swallows Tab (accept)
 /// and Esc (dismiss); otherwise it passes keys through and reports them.
 @MainActor
 final class EventTapController {
@@ -18,12 +18,12 @@ final class EventTapController {
     var shouldSwallowAccept: (() -> Bool)?
     var onCycle: (() -> Void)?
     /// True while the visible suggestion has ≥2 cyclable alternatives; consulted
-    /// before swallowing Option+backtick as a cycle.
+    /// before swallowing Option+Tab as a cycle.
     var alternativesAvailable = false
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private let acceptKeyCode: Int64 = 0x32  // kVK_ANSI_Grave (backtick `)
+    private let acceptKeyCode: Int64 = 0x30  // kVK_Tab (accept — like Copilot/cotabby/KeyType)
     private let escKeyCode: Int64 = 0x35  // kVK_Escape
     private let deleteKeyCode: Int64 = 0x33  // kVK_Delete (backspace)
 

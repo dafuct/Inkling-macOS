@@ -121,8 +121,15 @@ func runComparison(modelDirs: [URL]) async throws {
             arms.append(Arm(label: "raw-new", maxTokens: newMaxTokens,
                             decode: decodeNew, render: renderNew))
         } else {
+            // Base models: keep the legacy few-shot arm ONLY as contrast — the
+            // DECISION metric is raw-new, the pure-continuation path the app
+            // actually uses for base models. Judging a base model on the few-shot
+            // scaffold is out of distribution for it, which is why an earlier pass
+            // wrongly concluded "base models produce garbage".
             arms.append(Arm(label: "base-fewshot", maxTokens: oldMaxTokens,
                             decode: decodeOld, render: { r, _ in renderOld(r) }))
+            arms.append(Arm(label: "raw-new", maxTokens: newMaxTokens,
+                            decode: decodeNew, render: renderNew))
         }
 
         for arm in arms {

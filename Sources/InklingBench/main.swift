@@ -47,6 +47,14 @@ if CommandLine.arguments[1] == "sweep" {
     exit(0)
 }
 
+if CommandLine.arguments[1] == "trimsweep" {
+    let dir = CommandLine.arguments.count > 2
+        ? URL(filePath: CommandLine.arguments[2])
+        : URL(filePath: "models/gemma-4-e4b-it-4bit")
+    try await runTrimSweep(modelDir: dir)
+    exit(0)
+}
+
 let modelDir = URL(filePath: CommandLine.arguments[1])
 
 // Mirrors the app's steering. Kept local to the harness on purpose: the bench

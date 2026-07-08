@@ -63,8 +63,11 @@ enum ModelConfig {
     /// length" preference; `minMeanLogProb` is the garbage floor
     /// (-1.2 ≈ mean prob 0.30); `maxShownTokens` caps ghost-text length (user
     /// feedback 2026-07-03: full-budget suggestions read as a wall of text).
-    /// Refine with `InklingBench compare/sweep`.
+    /// `lengthBonus` 0.06 + `punctuationBonus` 0.75 tuned 2026-07-08 via
+    /// `InklingBench trimsweep`: strongly prefer a COMPLETE phrase (ending at a
+    /// sentence/clause boundary) over a one-word stub OR a mid-sentence wall —
+    /// the old 0.03/0.25 cut peaked contexts to a single word ("30-day").
     static let trim = TrimConfig(
-        firstTokenMinProb: 0.15, lengthBonus: 0.03, minMeanLogProb: -1.2,
-        maxShownTokens: 16)
+        firstTokenMinProb: 0.15, lengthBonus: 0.06, minMeanLogProb: -1.2,
+        maxShownTokens: 16, punctuationBonus: 0.75)
 }
